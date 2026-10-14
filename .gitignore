@@ -1,0 +1,28 @@
+# Cluster credentials; preserve the empty directory marker.
+/.kube/*
+!/.kube/.gitkeep
+
+# Credentials accidentally generated at the project root.
+/*.conf
+/*.kubeconfig
+
+# Local profiles, Prometheus settings and YAML drafts.
+/.kdash/
+
+# Python caches and virtual environments.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Local environment variables; allow example files.
+.env
+.env.*
+!.env.example
+
+# macOS and editor temporary files.
+.DS_Store
+*.swp
+*.swo
+*~
