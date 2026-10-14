@@ -15,7 +15,7 @@
 | 사용 목적 | 권한 구성 | KDASH 동작 |
 | --- | --- | --- |
 | 프로필 등록 | 유효한 kubeconfig 파일 | 등록 가능. API 접근/권한은 실제 조회 시 확인 |
-| 클러스터 조회 | 명시한 리소스의 get/list + 클러스터 범위 Binding | Overview, Nodes, 리소스 목록·YAML·Describe |
+| 클러스터 조회 | 명시한 리소스의 get/list + 클러스터 범위 Binding | Overview, Nodes, Namespaces, 리소스 목록·YAML·Describe |
 | 로그 조회 | pods/log get + Pod/컨트롤러 조회 | 지원되는 워크로드의 로그 확인 |
 | 노드 CPU/메모리 | metrics.k8s.io의 nodes get/list | Metrics API가 설치되어 있어야 사용량 표시 |
 | 노드 디스크 사용량 | nodes/proxy get | 현재 KDASH는 kubelet Summary API 사용. 고위험 권한이므로 별도 검토 |

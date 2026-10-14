@@ -4,10 +4,10 @@ import datetime as dt
 import re
 import shlex
 
-MENUS = [('1', 'Overview'), ('2', 'Nodes'), ('m', 'Monitoring'), ('N', 'Nodes'), ('3', 'Workloads'), ('4', 'Warnings'),
+MENUS = [('1', 'Overview'), ('2', 'Nodes'), ('m', 'Monitoring'), ('N', 'Nodes'), ('Z', 'Namespaces'), ('3', 'Workloads'), ('4', 'Warnings'),
          ('5', 'Errors'), ('6', 'Network'), ('7', 'Configuration'), ('8', 'Storage'),
          ('9', 'Access / RBAC'), ('0', 'API Resources'), ('s', 'Profiles')]
-MENU_GROUPS = [('Dashboard', ('1', 'm')), ('Clusters', ('N',)),
+MENU_GROUPS = [('Dashboard', ('1', 'm')), ('Clusters', ('N', 'Z')),
                ('Resources', ('3', '6', '7', '8', '9', '0')),
                ('Event', ('4', '5')), ('Settings', ('s',))]
 
@@ -99,10 +99,13 @@ def discover(client):
     return [catalog[name] for name in sorted(catalog)], errors
 
 
-def list_resource(client, resource, namespaced):
+def list_resource(client, resource, namespaced, namespace=None):
     if not re.fullmatch(r'[a-z0-9][a-z0-9.-]*', resource):
         return None, 'Invalid resource name'
-    args = ['get', resource] + (['-A'] if namespaced else []) + ['-o', 'json']
+    if namespace is not None and (not namespaced or not re.fullmatch(r'[a-z0-9][a-z0-9-]*', namespace)):
+        return None, 'Invalid namespace scope'
+    scope = (['--namespace', namespace] if namespace is not None else ['-A']) if namespaced else []
+    args = ['get', resource] + scope + ['-o', 'json']
     value, error = client.call(*args)
     if error:
         return None, error
@@ -219,11 +222,13 @@ def columns(resource, objects):
 
 def demo_catalog():
     resources = {resource: scope for tabs in CATEGORIES.values() for _, resource, scope in tabs}
-    resources.update({'pods': True, 'deployments.apps': True, 'widgets.demo.example': True, 'nodes': False})
+    resources.update({'pods': True, 'deployments.apps': True, 'widgets.demo.example': True, 'nodes': False, 'namespaces': False})
     return [{'name': name, 'namespaced': resources[name]} for name in sorted(resources)], []
 
 
 def demo_resource(resource, namespaced):
+    if resource == 'namespaces':
+        return [{'apiVersion': 'v1', 'kind': 'Namespace', 'metadata': {'name': value, 'uid': 'namespace-' + value}, 'status': {'phase': 'Terminating' if value == 'retiring' else 'Active'}} for value in ('default', 'demo', 'retiring')], None
     base = resource.split('.')[0]
     obj = {'apiVersion': 'v1', 'kind': base, 'metadata': {'name': 'demo-' + base, **({'namespace': 'demo'} if namespaced else {})}}
     if base == 'services':

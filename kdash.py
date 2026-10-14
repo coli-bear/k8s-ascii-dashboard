@@ -20,6 +20,7 @@ import event_views
 import resource_detail
 import resource_actions
 import node_views
+import namespace_views
 
 BASE = Path(__file__).resolve().parent
 RESOURCES = ('cpu', 'memory', 'ephemeral-storage')
@@ -443,6 +444,8 @@ def navigation_lines(group, selected, focus):
 def active_resource(view, category_tab=0, api_resource=None):
     if view == 'N':
         return {'name': 'nodes', 'namespaced': False, 'read_only': True}
+    if view == 'Z':
+        return {'name': 'namespaces', 'namespaced': False, 'read_only': True}
     if view in rv.CATEGORIES:
         label, name, scope = rv.CATEGORIES[view][category_tab]
         return {'name': name, 'namespaced': scope}
@@ -518,6 +521,8 @@ def resource_selection(data, view, kind, request, filters):
     try:
         if view == 'N':
             return resource, node_views.matches(data, filters) or []
+        if view == 'Z':
+            return resource, namespace_views.matches(data, filters) or []
         objects = (filtered_workloads(data, kind, filters)[kind] if view == '3' else
                    rv.filter_items((data.get('extras') or {}).get(resource['name']), filters, rv.status_text))
         return resource, resource_detail.sort_objects(objects)
@@ -541,8 +546,8 @@ def terminal_action(stdscr, callback):
 
 def content_lines(data, view, width, workload_kind='pods', filters=None, category_tab=0, api_resource=None, catalog_query='', catalog_index=0, monitoring_tab=0):
     output = []
-    if data.get('resource_detail') and (rv.menu_group(view) == 'Resources' or view == 'N'):
-        source = resource_detail.content(data['resource_detail'], width, clean)
+    if data.get('resource_detail') and (rv.menu_group(view) == 'Resources' or view in ('N', 'Z')):
+        source = resource_detail.content(data['resource_detail'], width, clean, ascii_table)
     elif view == 's':
         source = ['CLUSTER PROFILES', '', 'Enter Settings / Profiles to register, edit, remove or select a profile.',
                   'Manage per-profile Prometheus connections from the same screen.', 'Shortcut: c']
@@ -550,6 +555,8 @@ def content_lines(data, view, width, workload_kind='pods', filters=None, categor
         source = monitoring.render(data, monitoring_tab, width, ascii_table)
     elif view == 'N':
         source = node_views.list_lines(data, width, filters, ascii_table)
+    elif view == 'Z':
+        source = namespace_views.list_lines(data, width, filters, ascii_table)
     elif view in ('4', '5'):
         source = event_views.content(data, view, width, clean)
     elif view == '1':
@@ -605,11 +612,13 @@ def layout(data, view='1', width=120, offset=0, height=None, content=None, workl
     pinned = workload_header(data, workload_kind, inner, filters) if view == '3' else resource_header(data, view, inner, category_tab, api_resource, catalog_query, catalog_index, filters) if view in rv.CATEGORIES or view == '0' else []
     if view in ('1', '2', 'm'):
         pinned = dashboard_tabs(view, inner, monitoring_tab)
-    if rv.menu_group(view) == 'Resources' or view == 'N':
+    if rv.menu_group(view) == 'Resources' or view in ('N', 'Z'):
         if data.get('resource_detail'):
             pinned = resource_detail.header(data['resource_detail'], inner, clean)
         elif view == 'N':
             pinned = node_views.header(data, inner, filters, clean)
+        elif view == 'Z':
+            pinned = namespace_views.header(data, inner, filters, clean)
         elif data.get('resource_state') is not None:
             pinned += [part for part in textwrap.wrap('Up/Down: select | Enter: YAML/Describe/Logs | n: new YAML', inner)]
     if view in ('4', '5'):
@@ -622,7 +631,7 @@ def layout(data, view='1', width=120, offset=0, height=None, content=None, workl
         offset = min(offset, row_line)
         if row_line >= offset + available:
             offset = row_line - available + 1
-    if (rv.menu_group(view) == 'Resources' or view == 'N') and data.get('resource_state') is not None and not data.get('resource_detail'):
+    if (rv.menu_group(view) == 'Resources' or view in ('N', 'Z')) and data.get('resource_state') is not None and not data.get('resource_detail'):
         row_line = next((i for i, line in enumerate(content) if '| > ' in line), None)
         if row_line is not None:
             offset = min(offset, row_line)
@@ -642,8 +651,8 @@ def layout(data, view='1', width=120, offset=0, height=None, content=None, workl
     else:
         body = panel
     footer_hint = ('Esc: list | u/d: page' if (data.get('event_state') or {}).get('detail') else 'Enter: details | Up/Down: select | u/d: page') if view in ('4', '5') else 'CPU cores; Mem/Disk GiB | N/A = unavailable'
-    if rv.menu_group(view) == 'Resources' or view == 'N':
-        footer_hint = 'Esc: list | Left/Right: detail tabs | u/d: page' if data.get('resource_detail') else 'Up/Down: select | Enter: details' + (' | n: new YAML' if view != 'N' else '')
+    if rv.menu_group(view) == 'Resources' or view in ('N', 'Z'):
+        footer_hint = 'Esc: list | Left/Right: detail tabs | u/d: page' if data.get('resource_detail') else 'Up/Down: select | Enter: details' + (' | n: new YAML' if view not in ('N', 'Z') else '')
     footer = box(['Lines %s-%s/%s | %s' %
                   (offset + 1, min(offset + available, len(content)), len(content), footer_hint)], width)
     return header + body + footer, len(content), available, offset
@@ -900,6 +909,8 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                             footer += ' | ! exec'
                     elif is_resource_list and focus == 'content':
                         footer = 'RESOURCES: Up/Down select | Enter details | Left/Right tabs | / filter | n new | Esc menu | q quit'
+                    if view == 'Z' and focus == 'content':
+                        footer = ('NAMESPACES: Up/Down select | Enter details | / filter | x clear | Esc menu' if is_resource_list else 'NAMESPACE: Left/Right tabs | Esc list | u/d page') + ' | r refresh | q quit'
                     if view == 'N' and focus == 'content':
                         footer = ('NODES: Up/Down select | Enter details | / filter | x clear | Esc menu' if is_resource_list else 'NODE: Left/Right tabs | Esc list | u/d page') + ' | r refresh | q quit'
                     if future or resource_future or discovery_future:
@@ -942,7 +953,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                 elif 32 <= key <= 126 and len(draft) < 512:
                     draft += chr(key)
                 continue
-            if focus == 'content' and view == 'N' and detail_browser.item and key == ord('r'):
+            if focus == 'content' and view in ('N', 'Z') and detail_browser.item and key == ord('r'):
                 detail_browser.refresh()
                 continue
             if focus == 'content' and rv.menu_group(view) == 'Resources':
@@ -1002,7 +1013,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                     else:
                         offset = max(0, offset + direction * scroll_step)
                 continue
-            if key in map(ord, '0123456789msN'):
+            if key in map(ord, '0123456789msNZ'):
                 selected, focus = ('1' if key == ord('2') else chr(key)), 'nav'
                 if key in (ord('1'), ord('2')):
                     overview_view = chr(key)

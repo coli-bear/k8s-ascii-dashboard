@@ -14,7 +14,7 @@ class NavigationTests(unittest.TestCase):
             def shutdown(self, **kwargs): pass
         down, right, left = kdash.curses.KEY_DOWN, kdash.curses.KEY_RIGHT, kdash.curses.KEY_LEFT
         keys = iter([kdash.curses.KEY_UP, down, ord('k'), ord('j'), 10, right, 27, -1, down, 10, right, right, right, right, left,
-                     27, -1, down, down, down, 10, right, 27, -1,
+                     27, -1, down, down, down, down, 10, right, 27, -1,
                      down, down, down, down, down, down, 10, 27, -1,
                      27, -1, *([kdash.curses.KEY_UP] * 6), 10, ord('q')])
         class Terminal:

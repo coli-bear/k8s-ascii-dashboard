@@ -164,6 +164,7 @@ Dashboard
   Monitoring     [Cluster & Nodes | Namespace Capacity | Service Traffic | Workload Health]
 Clusters
   Nodes          [Status | YAML | Describe]
+  Namespaces     [Overview | Resources | Topology | YAML | Describe]
 Resources
   Workloads      [Pods | Deployments | ReplicaSets | StatefulSets]
   Network        [Services | EndpointSlices | Ingresses | NetworkPolicies]
@@ -187,6 +188,7 @@ Settings
 | 2 + Enter | Overview의 Nodes 탭으로 바로 이동하는 기존 단축키 |
 | m + Enter | Prometheus 실시간 차트와 메트릭 |
 | N + Enter | Clusters / Nodes 목록 (대문자 N) |
+| Z + Enter | Clusters / Namespaces 목록 (대문자 Z) |
 | 3 + Enter | 워크로드 화면, 좌/우로 Pods / Deployments / ReplicaSets / StatefulSets 탭 전환 |
 | 4 + Enter | 보관 중인 Warning 이벤트의 사유, 대상, 메시지, 발생 횟수 |
 | 5 + Enter | 데이터 소스별 조회 실패 원인 |
@@ -228,6 +230,45 @@ Settings
 `r`은 현재 목록 또는 상세 탭을 갱신하고, `u/d`·휠은 목록 이동/상세 스크롤에 사용합니다. `Esc`는 상세 → 기존 목록 → 메뉴 순서로 돌아갑니다. 이 메뉴는 조회 전용입니다. 기존 Overview의 노드 자원 요약과 Monitoring 차트는 그대로 사용할 수 있습니다.
 
 Status는 필요할 때 해당 노드만 조회합니다. CPU/메모리는 metrics.k8s.io, 디스크는 kubelet Summary API를 사용합니다. 값은 원본 Kubernetes quantity 또는 명시된 bytes 단위로 표시하며, 디스크는 루트 파일시스템만 포함합니다. 추가 조회가 거부되거나 수집원이 없으면 해당 값은 N/A와 오류 사유를 표시하고 나머지 노드 정보는 유지합니다. 전체 노드 목록은 기존 스냅샷을 재사용하며 상세에서는 노드·메트릭·배정 Pod·디스크의 실제 최신 조회 결과를 표시합니다.
+
+## Clusters / Namespaces
+
+`[Clusters] → Namespaces`에서 이름·Active/Terminating 상태·Pod 수·생성 후 경과 시간을 표로 조회합니다. Pod 수는 기존 전체 Pod 스냅샷 기준이며 완료된 Pod도 포함합니다. `/`로 `name=demo status=Active`처럼 복합 필터를 적용하고 `x`로 해제합니다. `↑/↓` 또는 `j/k`로 선택하고 `Enter`로 상세를 엽니다.
+
+좌우 키로 **Overview → Resources → Topology → YAML → Describe** 탭을 전환합니다.
+
+- **Overview:** 상태, UID, 생성/삭제 시각, spec·metadata finalizer, labels·annotations·conditions, 자원 종류별 개수, Pod phase별 개수, ResourceQuota의 hard/used와 LimitRange 제한.
+- **Resources:** 선택 namespace에 존재하는 객체의 이름·종류·상태·생성 후 경과 시간을 자원 종류별 표로 표시합니다. `api-resources`로 발견한 namespaced API/CRD도 조회합니다. 빈 자원 종류는 생략하고, 조회 실패는 N/A 및 사유를 표시합니다.
+- **Topology:** 워크로드 소유 관계, Ingress의 Service 참조, Service의 selector 후보 Pod 및 EndpointSlice 대상, Pod의 PVC/ConfigMap/Secret/ServiceAccount 참조와 NetworkPolicy가 선택하는 Pod를 ASCII 관계도로 표시합니다.
+- **YAML / Describe:** 해당 namespace의 원본 YAML과 `kubectl describe` 결과.
+
+토폴로지 예시(`--demo`의 합성 데이터):
+
+```text
+OWNERSHIP
++- Deployment/web
+   +- ReplicaSet/web-abc
+      +- Pod/web-abc-1 [Running; node=worker-01]
+
+INGRESS / SERVICE / POD
++- Ingress/web
+   +- example.invalid/ -> Service/web port=80
++- Service/web
+   +- [selector candidate] Pod/web-abc-1 [Running; node=worker-01]
+
+POD RESOURCE REFERENCES
++- Pod/web-abc-1 [Running; node=worker-01]
+   +- ConfigMap/web-config
+   +- PersistentVolumeClaim/web-data
+   +- Secret/web-secret
+   +- ServiceAccount/default
+```
+
+이 관계도는 **Kubernetes 설정과 참조 관계**입니다. 실제 트래픽 흐름이나 통신 허용 여부를 측정하지 않습니다. selector 후보에는 Ready가 아닌 Pod도 포함될 수 있으므로 EndpointSlice의 ready 상태를 함께 확인합니다. 소유 관계는 이름 대신 UID로 연결하며, UID가 바뀌었거나 조회할 수 없는 참조는 unavailable/unresolved로 표시합니다. selector 없는 Service에 모든 Pod를 연결하지 않습니다. ExternalName은 외부 DNS 이름을 표시합니다. 실제 트래픽 그래프는 Monitoring의 Service Traffic에서 확인합니다. [소유 관계](https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/), [Service](https://kubernetes.io/docs/concepts/services-networking/service/), [EndpointSlice](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/)
+
+상세에 진입할 때 선택 namespace 범위에서 최대 6개 자원 종류를 병렬 조회하며, Overview·Resources·Topology는 같은 조회 결과를 공유합니다. 여러 API의 결과이므로 원자적인 스냅샷은 아닙니다. `r`은 현재 상세를 재조회하며 이 세 탭의 공유 결과를 함께 갱신합니다. YAML/Describe의 `r`은 해당 탭만 재조회합니다. `u/d`·휠·방향키로 스크롤하고 `Esc`는 상세 → 목록 → 메뉴 순서로 돌아갑니다. 토폴로지는 최대 2,500줄, 소유 관계 깊이는 12단계로 표시하며 제한에 도달하면 안내합니다. Resources 목록은 토폴로지 표시 제한과 별도로 유지합니다.
+
+이 Clusters 메뉴는 조회 전용입니다. namespace 조회에는 namespaces get/list, 내부 자원에는 각 namespaced 리소스의 list 권한이 필요합니다. discovery나 일부 API의 권한이 없어도 공통 자원 조회와 다른 결과는 유지합니다. Secret/ConfigMap의 내용과 annotations는 목록·토폴로지 캐시에 남기지 않으며 참조에는 이름만 표시합니다. Secret list 권한 자체는 민감 정보를 읽을 수 있는 권한입니다. Prometheus는 필요하지 않습니다.
 
 ## Resources 상세 · 로그 · 운영 작업
 

@@ -104,7 +104,7 @@ class DashboardTests(unittest.TestCase):
             def shutdown(self, **kwargs): pass
         class Terminal:
             def __init__(self):
-                self.keys = iter([kdash.curses.KEY_DOWN, kdash.curses.KEY_DOWN, kdash.curses.KEY_DOWN, 10,
+                self.keys = iter([kdash.curses.KEY_DOWN, kdash.curses.KEY_DOWN, kdash.curses.KEY_DOWN, kdash.curses.KEY_DOWN, 10,
                     kdash.curses.KEY_RIGHT, kdash.curses.KEY_RIGHT, kdash.curses.KEY_LEFT,
                     27, -1, kdash.curses.KEY_DOWN, 10, ord('q')])
             def timeout(self, value): pass

@@ -4,6 +4,7 @@ import json
 import re
 import textwrap
 import node_views
+import namespace_views
 
 
 def identity(obj):
@@ -65,6 +66,8 @@ def load(client, item, mode):
     scope = ['--namespace', namespace] if item['namespaced'] else []
     if mode == 'status' and resource == 'nodes':
         return node_views.load(client, item)
+    if resource == 'namespaces' and mode in namespace_views.MODES:
+        return namespace_views.load(client, item)
     if mode == 'yaml':
         return client.text('get', resource, name, *scope, '-o', 'yaml')
     if mode in ('logs', 'logs_previous'):
@@ -104,6 +107,8 @@ def load(client, item, mode):
 
 
 def demo(item, mode):
+    if item['resource'] == 'namespaces' and mode in namespace_views.MODES:
+        return namespace_views.demo(item['name']), None
     if mode == 'status' and item['resource'] == 'nodes':
         node = {'metadata': {'name': item['name'], 'labels': {'node-role.kubernetes.io/worker': ''}},
                 'status': {'conditions': [{'type': 'Ready', 'status': 'True', 'reason': 'KubeletReady', 'message': 'DEMO: node is ready'}],
@@ -125,7 +130,7 @@ class Detail:
 
     def open(self, item, offset):
         self.generation += 1
-        self.item, self.mode = copy.deepcopy(item), 'status' if item['resource'] == 'nodes' else 'yaml'
+        self.item, self.mode = copy.deepcopy(item), 'status' if item['resource'] == 'nodes' else 'overview' if item['resource'] == 'namespaces' else 'yaml'
         self.saved_offset, self.buffers = offset, {}
 
     def close(self):
@@ -135,7 +140,7 @@ class Detail:
             self.future.cancel()
 
     def switch(self, step=1):
-        modes = (['status'] if self.item['resource'] == 'nodes' else []) + ['yaml', 'describe'] + (['logs'] if self.item['resource'] in LOG_RESOURCES else [])
+        modes = (['status'] if self.item['resource'] == 'nodes' else list(namespace_views.MODES) if self.item['resource'] == 'namespaces' else []) + ['yaml', 'describe'] + (['logs'] if self.item['resource'] in LOG_RESOURCES else [])
         current = 'logs' if self.mode == 'logs_previous' else self.mode
         self.mode = modes[(modes.index(current) + step) % len(modes)]
 
@@ -147,6 +152,9 @@ class Detail:
         self.generation += 1
         if all_modes:
             self.buffers.clear()
+        elif self.item and self.item['resource'] == 'namespaces' and self.mode in namespace_views.MODES:
+            for mode in namespace_views.MODES:
+                self.buffers.pop(mode, None)
         else:
             self.buffers.pop(self.mode, None)
 
@@ -154,7 +162,11 @@ class Detail:
         if self.future and self.future.done():
             if not self.future.cancelled() and self.request[0] == self.generation and self.item:
                 try:
-                    self.buffers[self.request[1]] = self.future.result()
+                    result = self.future.result()
+                    self.buffers[self.request[1]] = result
+                    if self.item['resource'] == 'namespaces' and self.request[1] in namespace_views.MODES and isinstance(result[0], dict):
+                        for mode in namespace_views.MODES:
+                            self.buffers[mode] = result
                 except Exception as exc:
                     self.buffers[self.request[1]] = (None, 'Detail query failed: ' + str(exc))
             self.future = None
@@ -176,7 +188,7 @@ class Detail:
 def header(state, width, clean):
     item = state['target']
     mode = 'logs' if state['mode'] == 'logs_previous' else state['mode']
-    tabs = (['Status'] if item['resource'] == 'nodes' else []) + ['YAML', 'Describe'] + (['Logs'] if item['resource'] in LOG_RESOURCES else [])
+    tabs = (['Status'] if item['resource'] == 'nodes' else ['Overview', 'Resources', 'Topology'] if item['resource'] == 'namespaces' else []) + ['YAML', 'Describe'] + (['Logs'] if item['resource'] in LOG_RESOURCES else [])
     lines = [('[' + name + ']' if mode == name.lower() else name) for name in tabs]
     lines = ['  '.join(lines), 'Left/Right: detail tab | Esc: list | r: reload',
              item['resource'] + ' | ' + (item.get('namespace') + '/' if item.get('namespace') else '') + item['name'], '-' * width]
@@ -191,9 +203,11 @@ def header(state, width, clean):
     return [part for line in lines for part in textwrap.wrap(clean(line), width) or ['']]
 
 
-def content(state, width, clean):
+def content(state, width, clean, table=None):
     if state['loading']:
         return ['Loading ' + state['mode'].upper() + '... | Esc: return to list']
+    if isinstance(state.get('output'), dict) and state['target']['resource'] == 'namespaces':
+        return namespace_views.render(state['output'], state['mode'], width, table, clean)
     if state['error']:
         raw = 'QUERY ERROR\n' + str(state['error']) + '\n\nPress r to retry or Esc to return to the list.'
         if state.get('output'):
