@@ -138,8 +138,30 @@ def prometheus_config(value):
     return result
 
 
+def choose_registry(entries):
+    clear()
+    print('KAsciiDash | Recover profile settings')
+    print('Older versions left different registry files. No settings have been deleted.')
+    print('Choose the settings to use. ALL originals will be saved in .kasciidash/registry-backups/.')
+    print('Only profile metadata is shown; credential files and values are not displayed.\n')
+    for index, (path, data) in enumerate(entries, 1):
+        items = data.get('profiles') or []
+        configured = sum(bool((item.get('prometheus') or {}).get('endpoint')) for item in items)
+        print('[%s] %s | profiles: %s | Prometheus: %s/%s' % (index, safe(path.name), len(items), configured, len(items)))
+        for item in items:
+            marker = '*' if item.get('id') == data.get('last_profile_id') else ' '
+            print('    %s %s | Prometheus: %s' % (marker, safe(item.get('alias')), 'configured' if (item.get('prometheus') or {}).get('endpoint') else 'not configured'))
+    while True:
+        answer = prompt('Registry number to keep (q/Esc: cancel; no default): ').strip().lower()
+        if answer == 'q':
+            raise InputCancelled()
+        if answer.isdigit() and 1 <= int(answer) <= len(entries):
+            return entries[int(answer) - 1][0]
+        print('Enter a registry number. Settings have not been changed.')
+
+
 class Store:
-    def __init__(self, base):
+    def __init__(self, base, resolver=None):
         self.base = Path(base).resolve()
         self.path = self.base / '.kasciidash' / 'profiles.json'
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -154,12 +176,27 @@ class Store:
             sources = [p for p in [self.path] + legacy if p.exists()]
             values = [(p, p.read_text(encoding='utf-8')) for p in sources]
             decoded = [self._decode(text) for _, text in values]
-            if decoded and any(data != decoded[0] for data in decoded[1:]):
-                raise ValueError('Conflicting profile registries. Existing files preserved; reconcile profiles.json and legacy registries before restarting.')
+            selected = 0
+            conflict = decoded and any(data != decoded[0] for data in decoded[1:])
+            if conflict:
+                if resolver is None:
+                    raise ValueError('Conflicting profile registries. Files preserved. Run ./kasciidash in an interactive terminal to choose a registry; originals will be backed up.')
+                chosen = resolver([(path, data) for (path, _), data in zip(values, decoded)])
+                selected = next((i for i, (path, _) in enumerate(values) if path == chosen), None)
+                if selected is None:
+                    raise ValueError('Choose one of the displayed registry files. Existing files preserved.')
+                if any(not path.exists() or path.read_text(encoding='utf-8') != text for path, text in values):
+                    raise ValueError('A registry changed during selection. Restart to review the latest files.')
+                backup = self.path.parent / 'registry-backups'
+                backup.mkdir(exist_ok=True, mode=0o700)
+                os.chmod(backup, 0o700)
+                # Back up every candidate before replacing the active registry.
+                for path, text in values:
+                    atomic_write(backup / (uuid.uuid4().hex + '-' + path.name), text)
             if decoded:
-                self.data = decoded[0]
-                if not self.path.exists():
-                    atomic_write(self.path, values[0][1])
+                self.data = self._decode(values[selected][1])
+                if not self.path.exists() or values[selected][0] != self.path:
+                    atomic_write(self.path, values[selected][1])
                 os.chmod(self.path, 0o600)
                 if legacy:
                     backup = self.path.parent / 'registry-backups'

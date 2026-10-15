@@ -518,7 +518,7 @@ Service별 관측에는 추가 수집원이 필요합니다. 현재 자동 지�
 
 ## 클러스터 프로필과 Prometheus 설정
 
-레지스트리 경로는 `.kasciidash/profiles.json`입니다. 이전 버전의 `*_app.config.profiles.json` 파일만 있으면 잠금 하에 정규 파일로 이전하며, 기존 ID·별명·접속 설정·Prometheus·마지막 선택을 보존합니다. 이전 원본은 `.kasciidash/registry-backups/`에 권한 600으로 보관합니다. 복수 파일이 서로 다르거나 손상됐다면 자동 재등록·덮어쓰기를 하지 않고 중단합니다. 앱을 모두 종료하고 보호된 사본으로 내용을 비교해 사용할 레지스트리를 결정하세요.
+레지스트리 경로는 `.kasciidash/profiles.json`입니다. 이전 버전의 `*_app.config.profiles.json` 파일만 있으면 잠금 하에 정규 파일로 이전하며, 기존 ID·별명·접속 설정·Prometheus·마지막 선택을 보존합니다. 이전 원본은 `.kasciidash/registry-backups/`에 권한 600으로 보관합니다. 복수 파일이 서로 다르면 대화형 실행에서 파일별 프로필·Prometheus 설정 건수를 보여주고 사용할 파일 번호를 명시적으로 선택하게 합니다. 선택 전 모든 원본을 백업하며 자동 선택은 하지 않습니다. `q`/Esc는 원본을 보존하고 종료합니다. `--once`에서는 선택을 묻지 않고 대화형 실행을 안내합니다. 손상 파일은 자동 덮어쓰기 없이 중단합니다.
 
 프로필은 `.kasciidash/profiles.json`에 관리합니다. 예시 구조:
 

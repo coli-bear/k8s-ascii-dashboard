@@ -1211,7 +1211,7 @@ def main():
         store, selected_profile = None, None
         client_factory = lambda path, context: Client(path, context, args.timeout)
         if not args.demo and not args.config:
-            store = profiles.Store(BASE)
+            store = profiles.Store(BASE, resolver=profiles.choose_registry if not args.once else None)
             if args.profile:
                 selected_profile = next((p for p in store.items if args.profile in (p['id'], p['alias'])), None)
                 if selected_profile is None:
@@ -1253,7 +1253,7 @@ def main():
                     profiles.clear()
                     print('KAsciiDash: ' + clean(exc))
                     input('Enter to manage profiles: ')
-                    store = store or profiles.Store(BASE)
+                    store = store or profiles.Store(BASE, resolver=profiles.choose_registry if not args.once else None)
                     selected_profile = profiles.manage(store, selected_profile, client_factory, args.timeout)
                     if selected_profile is None:
                         return 0
@@ -1276,12 +1276,12 @@ def main():
             result = curses.wrapper(screen, loader, args.interval, args.scroll_step, resource_loader, discovery_loader, monitoring_loader, args.metrics_interval, detail_loader, action_handler)
             if result == 'quit':
                 return 0
-            store = store or profiles.Store(BASE)
+            store = store or profiles.Store(BASE, resolver=profiles.choose_registry if not args.once else None)
             selected_profile = profiles.manage(store, selected_profile, client_factory, args.timeout)
             if selected_profile is None:
                 return 0
             args.config, args.context, args.demo = None, None, False
-    except (KeyboardInterrupt, EOFError):
+    except (KeyboardInterrupt, EOFError, profiles.InputCancelled):
         return 0
     except (ValueError, OSError, curses.error) as exc:
         print('KAsciiDash: ' + clean(exc), file=sys.stderr)

@@ -72,3 +72,5 @@ python3 -B -m unittest tests.test_yaml_storage tests.test_event_filters -v
 프로필은 canonical 및 기존 파일의 lock을 획득한 뒤 이전합니다. 초안 신규 작성/편집은 정규 리소스별 lock으로 앱 인스턴스 간 중복 편집을 직렬화합니다. 파일 정리는 별도 경로로 rename한 후 그 파일만 검사·삭제하며, 변경됐으면 원래 경로를 덮어쓰지 않고 복구합니다. 이 검증은 로컬 POSIX 파일시스템 기준이며 네트워크 파일시스템의 잠금·rename 특성은 별도 확인이 필요합니다.
 
 이번 변경의 실제 실행 환경과 제한은 [리뷰 수정 QA 기록](qa-review-fixes-2026-10-15.md)에 정리했습니다.
+
+`tests.test_registry_resolution`은 복구 화면의 명시적 선택·취소, 전체 원본 백업, 백업 실패, 선택 중 외부 변경, 대화형 시작과 `--once`의 분리를 검증합니다.

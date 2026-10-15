@@ -312,7 +312,7 @@ kubectl --kubeconfig "$KASCIIDASH_CHECK_CONFIG" auth can-i --list
 - **현재 프로필 유지:** KAsciiDash를 종료하고 현재 프로필의 `.kube` 참조 파일 경로를 확인합니다. 갱신 파일을 별도의 보호 경로에 발급하여 새 계정으로 접속·권한 검증을 마친 뒤, 권한 600의 완성된 파일을 같은 파일시스템에서 원자적으로 이동해 해당 참조 파일을 교체하고 재실행합니다. 자동 등록은 원래 `.kube/*.conf`, 명시적 가져오기는 `.kube/<이름>-<식별자>.conf`를 교체해야 합니다. 외부 원본만 교체하면 가져온 프로필에는 반영되지 않습니다. 클러스터와 context가 같은지 확인하세요.
 - **새 프로필로 검증 후 전환:** 현재 등록된 참조 파일과 **다른 경로**에 갱신 파일을 발급하고 `a`로 가져옵니다. 예: `.kube/kasciidash-operator-renewed.conf`. 기존 alias와 다른 임시 alias를 사용하고, 새 프로필을 선택해 접속·권한을 확인합니다. 새 프로필의 Prometheus 설정은 따로 연결합니다. 이후 이전 프로필을 삭제하고 필요하면 새 alias를 변경합니다.
 
-레지스트리는 `.kasciidash/profiles.json`으로 고정합니다. 이전 `*_app.config.profiles.json`은 충돌이 없으면 자동 이전하고 `.kasciidash/registry-backups/`에 원본을 보존합니다. 충돌·손상 시 중단하므로 사본을 보관한 뒤 사용할 레지스트리를 결정하세요.
+레지스트리는 `.kasciidash/profiles.json`으로 고정합니다. 이전 `*_app.config.profiles.json`은 충돌이 없으면 자동 이전하고 `.kasciidash/registry-backups/`에 원본을 보존합니다. 파일 내용이 충돌하면 대화형 실행의 복구 화면에서 사용할 레지스트리 번호를 선택합니다. 선택 전 모든 원본을 백업하며 자동 선택은 하지 않습니다. 손상 파일은 자동 이전하지 않습니다. `--once`는 선택을 묻지 않고 대화형 실행을 안내합니다.
 
 인증 파일의 경로는 `.kasciidash/profiles.json`의 `kubeconfig` 필드로 확인할 수 있습니다. 인증 파일 내용은 터미널이나 이슈에 출력하지 않습니다.
 
