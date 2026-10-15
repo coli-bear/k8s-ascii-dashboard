@@ -1219,7 +1219,7 @@ def main():
             elif store.items:
                 selected_profile = store.preferred()
             elif args.once:
-                raise ValueError('No profiles. Run ./kdash.sh to register a kubeconfig.')
+                raise ValueError('No profiles. Run ./kdash to register a kubeconfig.')
             else:
                 selected_profile = profiles.manage(store, None, client_factory, args.timeout)
                 if selected_profile is None:

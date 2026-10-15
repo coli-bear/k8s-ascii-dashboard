@@ -50,7 +50,7 @@ python3.11 kdash.py --demo
 python3.11 kdash.py
 ```
 
-`kdash.sh`는 PATH의 `python3`를 실행하므로 다른 버전은 위와 같이 직접 지정합니다.
+`kdash`는 PATH의 `python3`를 실행하므로 다른 버전은 위와 같이 직접 지정합니다.
 
 ### 프로젝트 배치와 첫 실행
 
@@ -58,17 +58,17 @@ python3.11 kdash.py
 
 ```sh
 cd /path/to/k8s-dashcli
-chmod +x kdash.sh
+chmod +x kdash
 mkdir -p .kube
-./kdash.sh --demo  # 접속 정보 없이 화면 확인, q로 종료
+./kdash --demo  # 접속 정보 없이 화면 확인, q로 종료
 
 # 실제 kubeconfig를 .kube/<k8s-cluster-name>.conf 형태로 저장
 cp /path/to/your/kubeconfig .kube/my-cluster.conf
 chmod 600 .kube/my-cluster.conf
-./kdash.sh
+./kdash
 ```
 
-외부 kubeconfig에 상대 경로 인증서가 있다면 단순 복사 대신 `./kdash.sh` 실행 후 등록 화면에서 **원본 파일의 절대 경로**를 입력하세요. 앱이 인증서를 포함한 사본으로 가져옵니다.
+외부 kubeconfig에 상대 경로 인증서가 있다면 단순 복사 대신 `./kdash` 실행 후 등록 화면에서 **원본 파일의 절대 경로**를 입력하세요. 앱이 인증서를 포함한 사본으로 가져옵니다.
 
 실제 접속 전에 kubeconfig 자체가 동작하는지 확인할 수 있습니다:
 
@@ -91,12 +91,12 @@ kubectl --kubeconfig /path/to/your/kubeconfig get nodes
 인증 파일은 `.kube` 또는 저장소 밖의 보호 디렉토리에 보관합니다. `.kube/*`, `.kdash/`, 루트의 `*.conf`·`*.kubeconfig`는 Git에서 제외합니다. 이미 추적된 파일과 과거 커밋에는 소급 적용되지 않습니다.
 
 ```sh
-./kdash.sh --demo                       # 실제 접속 없는 샘플 화면
-./kdash.sh --demo --once --width 140     # ASCII 화면을 텍스트로 출력
-./kdash.sh --profile my-alias           # 등록된 alias/ID 선택
-./kdash.sh --config /path/dev.conf --context dev-admin  # 일회성 직접 연결; 등록/복사하지 않음
-./kdash.sh --interval 15 --timeout 8
-./kdash.sh --config .kube/dev.conf --once
+./kdash --demo                       # 실제 접속 없는 샘플 화면
+./kdash --demo --once --width 140     # ASCII 화면을 텍스트로 출력
+./kdash --profile my-alias           # 등록된 alias/ID 선택
+./kdash --config /path/dev.conf --context dev-admin  # 일회성 직접 연결; 등록/복사하지 않음
+./kdash --interval 15 --timeout 8
+./kdash --config .kube/dev.conf --once
 ```
 
 ### 실행 옵션
@@ -114,7 +114,7 @@ kubectl --kubeconfig /path/to/your/kubeconfig get nodes
 | `--timeout 8` | kubectl 요청별 제한 시간. 기본 8초 |
 | `--scroll-step 10` | 마우스 휠 이동량. 기본 5줄 |
 
-`--config`와 `--profile`은 동시에 지정할 수 없습니다. 전체 옵션은 `./kdash.sh --help`로 확인합니다.
+`--config`와 `--profile`은 동시에 지정할 수 없습니다. 전체 옵션은 `./kdash --help`로 확인합니다.
 
 ### Prometheus 연결 순서
 
@@ -143,7 +143,7 @@ kubectl --kubeconfig /path/to/your/kubeconfig get nodes
 
 | 증상 | 확인 방법 |
 | --- | --- |
-| `Permission denied`로 실행되지 않음 | 프로젝트에서 `chmod +x kdash.sh` 실행 |
+| `Permission denied`로 실행되지 않음 | 프로젝트에서 `chmod +x kdash` 실행 |
 | `python3: command not found` | Python 설치 후 PATH 확인 |
 | `is_relative_to`, `removesuffix`, `cancel_futures` 관련 오류 | Python 3.9 이상인지 확인 |
 | `No module named curses` / `_curses` | curses 포함 Python 패키지를 설치하고 `python3 -c 'import curses'`로 확인 |
@@ -213,7 +213,7 @@ Settings
 
 워크로드 탭 이름과 상태 집계는 상단에 고정됩니다. Pod 탭은 Total/Healthy/Issues, Running/Pending/Failed/Succeeded/Unknown, NotReady/CrashLoopBackOff/Terminating 및 ImagePullBackOff/ErrImagePull/CreateContainerConfigError 수를 표시합니다. Healthy는 Running이면서 현재 이슈가 없는 Pod입니다. phase 집계와 장애 원인 집계는 겹칠 수 있으므로 합산하지 않습니다. 예를 들어 init container가 CrashLoopBackOff인 Pending Pod는 Pending·Issues·CrashLoopBackOff에 각각 포함됩니다. 장애 원인은 Terminating을 우선하고, Succeeded는 정상 완료로 처리한 뒤 init container·일반 컨테이너 순서로 현재 waiting/실패 사유를 검사하고, PodInitializing/ContainerCreating 같은 대기 사유보다 실제 장애 사유를 우선하여 대표 원인 하나를 표시·집계합니다. 성공적으로 완료한 init container는 장애로 세지 않습니다. 컨트롤러 탭은 전체/정상/이슈 객체 수와 desired/ready replica 합계를 표시합니다. 집계 범위는 모든 namespace입니다. 조회 실패 시 N/A를 표시합니다. 아주 작은 화면에서는 상단 집계 일부가 생략될 수 있으므로 140열 x 35행 이상을 권장합니다.
 
-휠 이동량은 `./kdash.sh --scroll-step 10`처럼 조절합니다. `j/k`와 방향키는 한 줄씩 유지합니다. 터미널이 마우스 이벤트를 전달해야 휠 이동이 동작합니다. 앱이 마우스 입력을 활성화하므로 터미널에 따라 텍스트 선택에는 Shift 키가 필요할 수 있습니다.
+휠 이동량은 `./kdash --scroll-step 10`처럼 조절합니다. `j/k`와 방향키는 한 줄씩 유지합니다. 터미널이 마우스 이벤트를 전달해야 휠 이동이 동작합니다. 앱이 마우스 입력을 활성화하므로 터미널에 따라 텍스트 선택에는 Shift 키가 필요할 수 있습니다.
 
 기본 30초마다 새 데이터를 수집합니다. 백그라운드 수집 중에는 이전 스냅샷과 메뉴를 계속 표시합니다. Snapshot은 수집 시작 시각이며 여러 API를 조회하므로 값들은 단일 원자적 스냅샷이 아닙니다. 종료 또는 파일 전환 시 진행 중인 조회가 timeout까지 마무리될 수 있습니다.
 
@@ -314,7 +314,7 @@ Logs는 Pod 및 Deployment·ReplicaSet·StatefulSet, API Resources의 DaemonSet�
 
 Pod, Deployment, ReplicaSet, StatefulSet, DaemonSet, Service, ConfigMap, Secret, PVC, Job, Namespace, Ingress 기본 템플릿을 제공합니다. 그 외 API/CRD는 실제 apiVersion·kind·metadata를 넣은 최소 템플릿을 제공하고 `kubectl explain` 명령을 안내합니다. 해당 리소스의 필수 필드를 편집기에서 채워야 합니다. 이미지·selector·호스트·StorageClass, StatefulSet의 headless Service 등은 클러스터에 맞게 조정합니다. 서버 dry-run에서 선택한 타입·이름·namespace를 유지하는지 확인한 뒤 배포합니다.
 
-편집기는 `$VISUAL`, `$EDITOR`, `vi` 순으로 사용합니다. 예: `EDITOR='code --wait' ./kdash.sh`. 편집기가 파일 저장까지 기다리도록 설정해야 합니다. vi에서는 `i`로 수정하고 `Esc` 후 `:wq`로 저장·종료합니다.
+편집기는 `$VISUAL`, `$EDITOR`, `vi` 순으로 사용합니다. 예: `EDITOR='code --wait' ./kdash`. 편집기가 파일 저장까지 기다리도록 설정해야 합니다. vi에서는 `i`로 수정하고 `Esc` 후 `:wq`로 저장·종료합니다.
 
 신규 YAML 초안만 `.kdash/<프로필 별명>/<리소스>/<이름>.yaml`에 저장합니다. `<리소스>`는 선택한 API 리소스명(`pods`, `deployments.apps` 등)입니다. 파일은 권한 600, 생성 디렉터리는 700입니다.
 
@@ -399,7 +399,7 @@ exec는 별도의 PTY로 stdin/stdout/stderr와 터미널 크기를 전달하고
 
 ```text
 k8s-dashcli/
-├── kdash.sh                 # 기본 실행 스크립트
+├── kdash                 # 기본 실행 스크립트
 ├── kdash.py                 # Python 실행 진입점 (호환 유지)
 ├── kdash_app/
 │   ├── __main__.py          # python3 -m kdash_app 진입점
@@ -419,7 +419,7 @@ k8s-dashcli/
 └── .kdash/                  # 프로필·마지막 선택·편집 초안 (Git 제외)
 ```
 
-`./kdash.sh`, `python3 kdash.py`, `python3 -m kdash_app` 모두 동일한 대시보드를 실행합니다. `kdash_app` 패키지와 실행 파일을 함께 배치해야 합니다. 실행한 디렉터리와 관계없이 프로젝트 루트의 `.kube`와 `.kdash`를 사용합니다. 내부 모듈을 직접 실행하지 마세요.
+`./kdash`, `python3 kdash.py`, `python3 -m kdash_app` 모두 동일한 대시보드를 실행합니다. `kdash_app` 패키지와 실행 파일을 함께 배치해야 합니다. 실행한 디렉터리와 관계없이 프로젝트 루트의 `.kube`와 `.kdash`를 사용합니다. 내부 모듈을 직접 실행하지 마세요.
 
 ## 개발 검증
 
@@ -490,7 +490,7 @@ kubectl api-resources --verbs=list --namespaced=false --cached=false -o name
 - `t`: 조회 구간 5분 → 15분 → 1시간. `p`: 자동 조회 일시정지/재개. 진행 중인 조회는 완료될 수 있습니다.
 - `r`: 즉시 갱신. 일시정지 중에도 수동 조회합니다. `u/d`, 마우스 휠: 아래의 차트·상위 20개 표 스크롤.
 - `/`: 탭별 복합 필터 입력, `x`: 초기화. `cluster`는 대소문자를 구분하는 **정확 일치**입니다. 예: `cluster=prod`는 `prod-east`에 매칭되지 않습니다. 나머지 필터는 정규식이 아닌 부분 문자열입니다. node 필터는 노드명/IP에서 검색하며 나머지 필터는 대소문자를 구분합니다. 특정 노드/namespace를 선택하면 그래프도 해당 범위로 좁혀집니다.
-- `./kdash.sh --metrics-interval 2`: 조회 완료 후 2초 간격으로 다시 조회. 차트 해상도는 5분=5초, 15분=15초, 1시간=60초이며 실제 원본 정밀도는 Prometheus scrape 주기에 좌우됩니다. CPU·I/O 등의 rate는 직전 2분 평균입니다.
+- `./kdash --metrics-interval 2`: 조회 완료 후 2초 간격으로 다시 조회. 차트 해상도는 5분=5초, 15분=15초, 1시간=60초이며 실제 원본 정밀도는 Prometheus scrape 주기에 좌우됩니다. CPU·I/O 등의 rate는 직전 2분 평균입니다.
 
 차트와 지표별 표는 터미널 폭에 맞춰 여러 열로 자동 배치합니다. 넓어지면 한 줄에 더 많이 표시하고, 좁아지면 다음 줄로 넘깁니다. 표는 배정된 칸의 너비를 채우며, 긴 Pod 이름이 있는 Workload Health 표는 더 넓은 최소 폭을 사용합니다. 창 크기를 바꾸면 즉시 재배치합니다.
 

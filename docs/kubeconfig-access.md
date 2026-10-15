@@ -297,7 +297,7 @@ kubectl --kubeconfig "$KDASH_CHECK_CONFIG" auth can-i --list
 ## 6. KDASH 프로필 등록
 
 1. 생성한 `.kube/my-cluster.conf`(ServiceAccount) 또는 `.kube/kdash-operator.conf`(kubeadm)를 KDASH 컴퓨터의 보호 디렉토리로 안전하게 전달합니다. 파일 권한 600을 유지합니다.
-2. `./kdash.sh`를 실행합니다. 프로필이 없으면 등록 안내가 나옵니다.
+2. `./kdash`를 실행합니다. 프로필이 없으면 등록 안내가 나옵니다.
 3. 기존 프로필이 있으면 `c` 또는 `Settings → Profiles`에 진입합니다.
 4. `a`를 선택하고 `.conf`의 절대 경로를 입력합니다.
 5. alias를 입력합니다. context는 파일 안의 클러스터·사용자·기본 namespace 조합이며 파일명이 아닙니다.

@@ -17,7 +17,7 @@ class PackageLayoutTests(unittest.TestCase):
 
     def test_public_launchers_from_another_directory(self):
         commands = ([sys.executable, str(ROOT / 'kdash.py')],
-                    ['sh', str(ROOT / 'kdash.sh')])
+                    [str(ROOT / 'kdash')])
         with tempfile.TemporaryDirectory() as directory:
             for command in commands:
                 with self.subTest(command=command):

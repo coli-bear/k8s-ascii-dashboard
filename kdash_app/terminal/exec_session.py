@@ -38,7 +38,7 @@ def exec_base(base):
 
 def run(argv, first_output_timeout=None):
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
-        raise ValueError('Exec needs an interactive terminal. Run ./kdash.sh directly in a terminal.')
+        raise ValueError('Exec needs an interactive terminal. Run ./kdash directly in a terminal.')
     input_fd, output_fd = sys.stdin.fileno(), sys.stdout.fileno()
     saved = termios.tcgetattr(input_fd)
     last_size = None
