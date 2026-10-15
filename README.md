@@ -54,7 +54,7 @@ python3.11 kdash.py
 
 ### 프로젝트 배치와 첫 실행
 
-프로젝트 디렉토리 전체를 실행할 컴퓨터로 복사합니다. `kdash.py` 하나만 복사하면 함께 사용하는 모듈을 불러올 수 없습니다. 아래 `/path/to/k8s-dashcli`는 실제 프로젝트 경로로 바꿉니다.
+프로젝트 디렉토리 전체를 실행할 컴퓨터로 복사합니다. `kdash.py` 하나만 복사하면 `kdash_app/` 패키지를 불러올 수 없습니다. 아래 `/path/to/k8s-dashcli`는 실제 프로젝트 경로로 바꿉니다.
 
 ```sh
 cd /path/to/k8s-dashcli
@@ -82,7 +82,7 @@ kubectl --kubeconfig /path/to/your/kubeconfig get nodes
 
 프로필 등록 전 [kubeconfig 발급·클러스터 권한·운영 주의사항](docs/kubeconfig-access.md)을 참고하세요. 등록 자체에는 슈퍼 관리자 권한이 필요하지 않으며, 조회용 계정과 전체 운영용 계정의 발급 방법·권한 검증·갱신 및 회수 절차를 설명합니다.
 
-최초 실행 시 `.kube/*.conf`를 파일명 순서로 프로필에 등록하여 **기존 파일을 직접 참조**합니다. 자동 등록은 사본을 만들지 않습니다. 이후에는 `.kdash/profiles.json`에 등록된 순서를 사용합니다. 실행할 때마다 첫 프로필에 자동 연결합니다. 프로필이 없으면 등록 화면으로 안내합니다. `Settings → Profiles` 또는 `c`에서 등록·조회·별명 수정·고급 접속 설정 변경·삭제·선택 및 Prometheus 설정을 관리합니다. 시작 전 kubeconfig 선택 질문은 표시하지 않습니다.
+최초 실행 시 `.kube/*.conf`를 파일명 순서로 프로필에 등록하여 **기존 파일을 직접 참조**합니다. 자동 등록은 사본을 만들지 않습니다. 이후에는 `.kdash/profiles.json`에 등록된 순서를 사용합니다. 다음 실행에서는 마지막으로 대시보드를 연 프로필에 자동 연결합니다. 저장된 선택이 없거나 해당 프로필을 삭제했다면 첫 프로필로 연결합니다. 프로필이 없으면 등록 화면으로 안내합니다. `Settings → Profiles` 또는 `c`에서 등록·조회·별명 수정·고급 접속 설정 변경·삭제·선택 및 Prometheus 설정을 관리합니다. 시작 전 kubeconfig 선택 질문은 표시하지 않습니다.
 
 외부 kubeconfig는 프로필 등록에서 경로를 입력합니다. `kubectl config view --raw --flatten`으로 인증서를 포함한 관리용 복사본을 `.kube/<이름>-<식별자>.conf`에 저장하므로 상대 인증서 경로가 깨지지 않습니다. 원본은 수정하지 않습니다. 외부 원본을 갱신해도 관리 사본은 자동 갱신되지 않습니다. 이미 등록된 `.kube` 참조 파일 경로를 다시 입력하면 기존 프로필을 반환합니다. exec 인증 플러그인은 해당 CLI가 KDASH를 실행하는 컴퓨터에 설치되어 있어야 합니다. 프로필의 context를 변경하면 Prometheus 설정을 초기화합니다.
 
@@ -134,8 +134,8 @@ kubectl --kubeconfig /path/to/your/kubeconfig get nodes
 | 경로 | 내용 |
 | --- | --- |
 | `.kube/*.conf` | 클러스터 kubeconfig 사본 |
-| `.kdash/profiles.json` | 별명·kubeconfig 경로·context·프로필별 Prometheus 연결 정보 |
-| `.kdash/drafts/*.yaml` | 생성·수정한 YAML 초안. 성공·취소 후에도 보존 |
+| `.kdash/profiles.json` | 별명·kubeconfig 경로·context·프로필별 Prometheus 연결 정보·마지막 선택 ID |
+| `.kdash/<프로필 별명>/<리소스>/<이름>.yaml` | 배포하지 않은 신규 YAML 초안. 성공 시 삭제 |
 
 다른 컴퓨터에서 사용할 때는 kubeconfig 인증 플러그인·인증 환경변수·사용자 CA 파일도 해당 컴퓨터에 준비해야 합니다. 프로필에 저장된 외부 파일의 절대 경로는 새 환경에 맞게 다시 설정합니다.
 
@@ -164,7 +164,7 @@ Dashboard
   Monitoring     [Cluster & Nodes | Namespace Capacity | Service Traffic | Workload Health]
 Clusters
   Nodes          [Status | YAML | Describe]
-  Namespaces     [Overview | Resources | Topology | YAML | Describe]
+  Namespaces     [Overview | Resources | TreeView | Topology | YAML | Describe]
 Resources
   Workloads      [Pods | Deployments | ReplicaSets | StatefulSets]
   Network        [Services | EndpointSlices | Ingresses | NetworkPolicies]
@@ -235,40 +235,48 @@ Status는 필요할 때 해당 노드만 조회합니다. CPU/메모리는 metri
 
 `[Clusters] → Namespaces`에서 이름·Active/Terminating 상태·Pod 수·생성 후 경과 시간을 표로 조회합니다. Pod 수는 기존 전체 Pod 스냅샷 기준이며 완료된 Pod도 포함합니다. `/`로 `name=demo status=Active`처럼 복합 필터를 적용하고 `x`로 해제합니다. `↑/↓` 또는 `j/k`로 선택하고 `Enter`로 상세를 엽니다.
 
-좌우 키로 **Overview → Resources → Topology → YAML → Describe** 탭을 전환합니다.
+좌우 키로 **Overview → Resources → TreeView → Topology → YAML → Describe** 탭을 전환합니다.
 
 - **Overview:** 상태, UID, 생성/삭제 시각, spec·metadata finalizer, labels·annotations·conditions, 자원 종류별 개수, Pod phase별 개수, ResourceQuota의 hard/used와 LimitRange 제한.
 - **Resources:** 선택 namespace에 존재하는 객체의 이름·종류·상태·생성 후 경과 시간을 자원 종류별 표로 표시합니다. `api-resources`로 발견한 namespaced API/CRD도 조회합니다. 빈 자원 종류는 생략하고, 조회 실패는 N/A 및 사유를 표시합니다.
-- **Topology:** 워크로드 소유 관계, Ingress의 Service 참조, Service의 selector 후보 Pod 및 EndpointSlice 대상, Pod의 PVC/ConfigMap/Secret/ServiceAccount 참조와 NetworkPolicy가 선택하는 Pod를 ASCII 관계도로 표시합니다.
+- **TreeView:** 기존 트리 화면입니다. 워크로드 소유 관계, Ingress의 Service 참조, Service의 selector 후보 Pod 및 EndpointSlice 대상, Pod의 PVC/ConfigMap/Secret/ServiceAccount 참조와 NetworkPolicy가 선택하는 Pod를 ASCII 관계도로 표시합니다.
+- **Topology:** 워크로드 선택 목록으로 시작합니다. `↑/↓`, `j/k`, 휠로 선택하고 `Enter`로 해당 워크로드만의 관계도를 엽니다. 관계도에서 `Esc`는 워크로드 목록으로, 목록에서 `Esc`는 namespace 목록으로 돌아갑니다. `u/d`는 목록에서는 페이지 선택 이동, 관계도에서는 페이지 스크롤입니다. Deployment·StatefulSet·DaemonSet·Job·CronJob·Notebook 및 Pod 소유 관계/Pod 템플릿으로 식별되는 CRD를 지원합니다. 상위 워크로드가 확인된 ReplicaSet·Job·Pod는 목록에서 상위 워크로드에 묶고, 단독 ReplicaSet·Pod는 별도로 표시합니다.
+
+선택한 워크로드의 UID 소유 관계와 소속 Pod, 연결된 Service/EndpointSlice, Pod가 직접 참조하는 ConfigMap·Secret·PVC·ServiceAccount·imagePullSecret만 표시합니다. 공유 Service/설정 자원을 통해 다른 워크로드나 형제 Pod로 범위를 확장하지 않습니다. 선택한 대상은 `*`로 표시하고 Pod 수와 Ready 수를 요약합니다. UID가 달라지거나 대상이 사라지면 자동으로 대체하지 않고 목록에서 다시 선택하도록 안내합니다.
+
+`Resources → Workloads → 상세 → Topology`에서도 같은 관계도를 바로 볼 수 있습니다. 기존 YAML·Describe·Logs 뒤에 Topology 탭을 제공합니다. Pods 탭에서 진입하면 해당 Pod와 상위 소유 관계만 포함하고 형제 Pod는 제외합니다. 이 경로의 `Esc`는 원래 리소스 목록으로 돌아갑니다. 지원되는 워크로드의 API Resources 상세에서도 같은 탭을 사용할 수 있습니다.
+
+관계도는 namespace 테두리 안에 Network·Pods·Owners·References 카드를 가로로 배치합니다. 콘텐츠 폭 128열 이상은 4열, 96~127열은 3열이며 더 좁으면 세로 연결 그래프로 전환합니다. 긴 카드 이름은 줄이고 FULL CARD LABELS에 전체 이름을 표시합니다. 연결 목록은 소유 관계·endpoint·selector 후보·설정 참조를 구분합니다. selector 후보는 실제 endpoint 또는 통신 가능 판정이 아닙니다. `x`는 연결선 교차이며 연결점이 아닙니다. 공유 경로의 정확한 연결은 E 목록으로 확인합니다.
+
 - **YAML / Describe:** 해당 namespace의 원본 YAML과 `kubectl describe` 결과.
 
-토폴로지 예시(`--demo`의 합성 데이터):
+TreeView 예시(`--demo`의 합성 데이터, 상태 상세 줄 생략):
 
 ```text
 OWNERSHIP
-+- Deployment/web
-   +- ReplicaSet/web-abc
-      +- Pod/web-abc-1 [Running; node=worker-01]
++- [Deployment] web
+   +- [ReplicaSet] web-abc
+      +- [Pod] web-abc-1
 
 INGRESS / SERVICE / POD
-+- Ingress/web
-   +- example.invalid/ -> Service/web port=80
-+- Service/web
-   +- [selector candidate] Pod/web-abc-1 [Running; node=worker-01]
++- [Ingress] web
+   +- example.invalid/ -> [Service] web port=80
++- [Service] web
+   +- [selector candidate] [Pod] web-abc-1
 
 POD RESOURCE REFERENCES
-+- Pod/web-abc-1 [Running; node=worker-01]
-   +- ConfigMap/web-config
-   +- PersistentVolumeClaim/web-data
-   +- Secret/web-secret
-   +- ServiceAccount/default
++- [Pod] web-abc-1
+   +- [ConfigMap] web-config
+   +- [PersistentVolumeClaim] web-data
+   +- [Secret] web-secret
+   +- [ServiceAccount] default
 ```
 
 이 관계도는 **Kubernetes 설정과 참조 관계**입니다. 실제 트래픽 흐름이나 통신 허용 여부를 측정하지 않습니다. selector 후보에는 Ready가 아닌 Pod도 포함될 수 있으므로 EndpointSlice의 ready 상태를 함께 확인합니다. 소유 관계는 이름 대신 UID로 연결하며, UID가 바뀌었거나 조회할 수 없는 참조는 unavailable/unresolved로 표시합니다. selector 없는 Service에 모든 Pod를 연결하지 않습니다. ExternalName은 외부 DNS 이름을 표시합니다. 실제 트래픽 그래프는 Monitoring의 Service Traffic에서 확인합니다. [소유 관계](https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/), [Service](https://kubernetes.io/docs/concepts/services-networking/service/), [EndpointSlice](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/)
 
-상세에 진입할 때 선택 namespace 범위에서 최대 6개 자원 종류를 병렬 조회하며, Overview·Resources·Topology는 같은 조회 결과를 공유합니다. 여러 API의 결과이므로 원자적인 스냅샷은 아닙니다. `r`은 현재 상세를 재조회하며 이 세 탭의 공유 결과를 함께 갱신합니다. YAML/Describe의 `r`은 해당 탭만 재조회합니다. `u/d`·휠·방향키로 스크롤하고 `Esc`는 상세 → 목록 → 메뉴 순서로 돌아갑니다. 토폴로지는 최대 2,500줄, 소유 관계 깊이는 12단계로 표시하며 제한에 도달하면 안내합니다. Resources 목록은 토폴로지 표시 제한과 별도로 유지합니다.
+상세에 진입할 때 선택 namespace 범위에서 최대 6개 자원 종류를 병렬 조회하며, Overview·Resources·TreeView·Topology는 같은 조회 결과를 공유합니다. 여러 API의 결과이므로 원자적인 스냅샷은 아닙니다. `r`은 현재 상세를 재조회하며 이 네 탭의 공유 결과를 함께 갱신합니다. YAML/Describe의 `r`은 해당 탭만 재조회합니다. `u/d`·휠·방향키로 스크롤하고 `Esc`는 상세 → 목록 → 메뉴 순서로 돌아갑니다. TreeView는 최대 2,500줄, 소유 관계 깊이는 12단계로 표시하며 제한에 도달하면 안내합니다. Topology는 선택한 워크로드로 범위를 제한한 후 최대 160개 노드·400개 연결·2,500줄로 제한하고 생략 시 안내합니다. Resources 목록은 그래프/트리 표시 제한과 별도로 유지합니다.
 
-이 Clusters 메뉴는 조회 전용입니다. namespace 조회에는 namespaces get/list, 내부 자원에는 각 namespaced 리소스의 list 권한이 필요합니다. discovery나 일부 API의 권한이 없어도 공통 자원 조회와 다른 결과는 유지합니다. Secret/ConfigMap의 내용과 annotations는 목록·토폴로지 캐시에 남기지 않으며 참조에는 이름만 표시합니다. Secret list 권한 자체는 민감 정보를 읽을 수 있는 권한입니다. Prometheus는 필요하지 않습니다.
+이 Clusters 메뉴는 조회 전용입니다. namespace 진입에는 namespaces get/list, 내부 자원에는 각 namespaced 리소스의 list 권한이 필요합니다. Workloads 상세의 Topology는 해당 객체의 get 및 namespace 내부 자원의 list 권한을 사용하며 namespaces get을 추가로 요구하지 않습니다. discovery나 일부 API의 권한이 없어도 공통 자원 조회와 다른 결과는 유지합니다. Secret/ConfigMap의 내용과 annotations는 목록·토폴로지 캐시에 남기지 않으며 참조에는 이름만 표시합니다. Secret list 권한 자체는 민감 정보를 읽을 수 있는 권한입니다. Prometheus는 필요하지 않습니다.
 
 ## Resources 상세 · 로그 · 운영 작업
 
@@ -308,13 +316,38 @@ Pod, Deployment, ReplicaSet, StatefulSet, DaemonSet, Service, ConfigMap, Secret,
 
 편집기는 `$VISUAL`, `$EDITOR`, `vi` 순으로 사용합니다. 예: `EDITOR='code --wait' ./kdash.sh`. 편집기가 파일 저장까지 기다리도록 설정해야 합니다. vi에서는 `i`로 수정하고 `Esc` 후 `:wq`로 저장·종료합니다.
 
-초안은 `.kdash/drafts/<식별자>.yaml`에 권한 600으로 저장하며, 성공·취소·오류 후에도 남겨 둡니다. Secret 편집 초안에는 민감한 값이 포함될 수 있습니다. 기존 객체를 편집할 때 status·managedFields 등 서버 관리 필드는 제거하고 resourceVersion은 동시 수정 충돌 감지를 위해 유지합니다.
+신규 YAML 초안만 `.kdash/<프로필 별명>/<리소스>/<이름>.yaml`에 저장합니다. `<리소스>`는 선택한 API 리소스명(`pods`, `deployments.apps` 등)입니다. 파일은 권한 600, 생성 디렉터리는 700입니다.
+
+- `n`: 새 YAML 작성. 같은 이름의 초안이 있으면 덮어쓰지 않고 `D`로 불러오도록 안내합니다.
+- `D`(Shift+d): 현재 프로필·리소스의 저장된 신규 초안 목록을 열고 번호로 선택합니다. 편집 → 미리보기 → 서버 dry-run → `create` 확인을 거쳐 배포합니다. YAML의 namespace를 사용하며 현재 목록에서 선택한 객체의 namespace로 덮어쓰지 않습니다.
+- 신규 배포 성공 시 해당 초안을 삭제합니다. 취소·검증 실패·배포 실패 시에는 남겨 두므로 나중에 `D`로 이어서 작업할 수 있습니다.
+- 기존 객체의 `e` 편집은 OS 임시 디렉터리를 사용하고 성공·취소·오류 시 정리합니다. 프로젝트에 편집 초안이나 배포 이력을 보관하지 않습니다. 이후 조회는 클러스터에서 다시 가져옵니다.
+
+미리보기·서버 dry-run·diff·제출은 같은 YAML 스냅샷을 사용합니다. 승인 대기 중 외부에서 신규 초안을 변경했다면, 승인한 스냅샷만 제출하고 더 최신 초안은 삭제하지 않습니다. 이미 같은 이름의 객체가 존재할 때 신규 초안을 강제로 덮어쓰지 않도록 신규 배포는 `create`를 사용합니다. 기존 객체 수정은 목록에서 해당 객체를 선택하고 `e`로 진행하세요.
+
+기존 `<리소스>/draft/<hash>.yaml` 신규 초안도 `D` 목록에 표시합니다. 선택하면 객체명을 확인해 새 경로로 옮긴 뒤 이어서 편집합니다. 충돌하는 이름이 있으면 덮어쓰지 않습니다. 과거의 `.kdash/drafts/` 공용 초안과 편집·배포 이력은 프로필을 확정할 수 없어 자동 이동·삭제하지 않습니다.
+
+별명의 `/` 등 경로 구분 문자는 퍼센트 인코딩하며 `--config` 직접 연결은 `unregistered` 별명을 사용합니다. 별명 변경 시 기존 초안은 이전 별명 디렉터리에 남습니다. 요청한 구조에는 namespace가 없으므로 같은 프로필·리소스·이름의 초안은 namespace별로 동시에 저장할 수 없습니다. Secret 신규 초안에는 민감한 값이 포함될 수 있습니다. 기존 객체 편집은 status·managedFields를 제거하고 resourceVersion은 동시 수정 충돌 감지를 위해 유지합니다.
 
 저장 후 YAML 전문과 서버 dry-run 결과를 표시합니다. 기존 객체 수정은 diff도 표시하며 이름·namespace·kind·apiVersion 변경을 막습니다. 신규는 `create`, 수정은 `apply`를 직접 입력해야 실제 배포합니다. 신규는 이미 존재하는 객체를 덮어쓰지 않습니다. 미리보기·서버 dry-run·diff·최종 제출은 메모리에 보관한 동일한 YAML 내용을 stdin으로 전달합니다. 승인 대기 중 보관용 초안 파일을 외부에서 바꿔도 제출 내용은 바뀌지 않습니다. 변경한 초안을 반영하려면 `e`로 다시 편집하여 검증·승인을 반복합니다. 검증에 실패하면 `e`로 다시 편집할 수 있습니다.
 
 ### Exec
 
-Pod에서는 컨테이너를, 워크로드에서는 selector와 일치하는 Running Pod와 실행 중인 컨테이너를 선택합니다. 기본 명령은 `/bin/sh`이며 직접 다른 명령을 입력할 수 있습니다. 로컬 shell을 거치지 않고 인자를 전달하므로 파이프 등은 `sh -c "..."` 형태로 입력합니다. 대상과 명령을 확인하고 `exec`를 입력하면 터미널을 연결합니다. 컨테이너에 shell이 없는 이미지에서는 해당 이미지에 존재하는 명령을 지정해야 합니다. `exit`로 종료하면 대시보드로 돌아갑니다.
+Pod에서는 실행 중인 컨테이너를 선택합니다. 한 개이면 자동 선택하고, 여러 개이면 목록에서 고릅니다. 워크로드에서는 selector와 일치하는 Running Pod를 먼저 선택합니다.
+
+- `1` 또는 `sh` / Enter: `/bin/sh -i` 접속
+- `2` 또는 `bash`: `/bin/bash -i` 접속
+- `3`: 사용자 명령 입력. 예: `sh -c "id; pwd"`
+
+쉘은 대상 namespace·Pod·컨테이너·명령을 확인한 뒤 Enter로 연결하며 Esc로 취소합니다. 사용자 명령은 입력한 명령을 확인하고 `exec`를 입력해야 실행합니다. 로컬 shell을 거치지 않고 인자를 전달하므로 파이프 등은 `sh -c "..."` 형태로 입력합니다. 실행 직전에 Pod UID와 컨테이너 실행 상태를 다시 확인합니다. 컨테이너에 선택한 쉘이 없으면 다른 쉘이나 컨테이너를 선택하세요.
+
+exec는 별도의 PTY로 stdin/stdout/stderr와 터미널 크기를 전달하고, 종료·실패·연결 해제 후 터미널 설정을 복원합니다. 일반 조회용 `--request-timeout`은 exec 세션에 적용하지 않습니다. 쉘 시작 후 **첫 출력이 20초 동안 전혀 없으면** 로컬 연결을 닫고 안내합니다. 첫 출력 이후의 쉘 및 사용자 명령에는 세션 시간 제한을 두지 않습니다. 일부 출력 뒤 접속이 멈추면 `Ctrl+]`로 연결을 종료할 수 있습니다.
+
+- `exit` / `Ctrl+D`: 원격 쉘 종료
+- `Ctrl+C`: 현재 원격 명령 인터럽트 또는 접속 중단
+- `Ctrl+]`: KDASH에서 로컬 exec 연결 해제. 원격 명령 종료를 보장하는 키는 아닙니다.
+
+종료 후 Enter로 대시보드에 돌아갑니다. 쉘 없음, `pods/exec` 권한 거부, API/proxy의 exec 스트림 연결 실패 등은 kubectl 출력을 그대로 확인할 수 있습니다.
 
 권한은 기존 kubeconfig를 그대로 사용합니다. 로그는 `pods/log` 조회, exec는 `pods/exec` 생성 권한이 필요합니다. 변경 작업에는 해당 리소스의 create/patch/update/delete 및 scale 서브리소스 권한 등이 필요합니다. `--demo`에서는 조회 예제만 제공하고 변경·exec는 실행하지 않습니다.
 
@@ -362,10 +395,36 @@ Pod에서는 컨테이너를, 워크로드에서는 selector와 일치하는 Run
 
 지표 참고: [Node metrics](https://kubernetes.io/docs/reference/instrumentation/node-metrics/), [Resource requests](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/), [Sidecar requests](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/).
 
+## 프로젝트 구조
+
+```text
+k8s-dashcli/
+├── kdash.sh                 # 기본 실행 스크립트
+├── kdash.py                 # Python 실행 진입점 (호환 유지)
+├── kdash_app/
+│   ├── __main__.py          # python3 -m kdash_app 진입점
+│   ├── ui/
+│   │   └── dashboard.py     # curses 화면, 메뉴, 입력 처리, 데이터 갱신
+│   ├── config/
+│   │   └── profiles.py      # 프로필 저장·선택, kubeconfig 등록, 연결 설정
+│   ├── monitoring/
+│   │   └── prometheus.py    # Prometheus 조회 및 지표 렌더링
+│   ├── resources/           # 리소스 목록·상세·작업, 이벤트·노드·네임스페이스
+│   ├── topology/           # 네임스페이스·워크로드 연결 그래프
+│   └── terminal/
+│       └── exec_session.py  # 컨테이너 exec용 PTY 및 터미널 복원
+├── tests/                   # 단위·회귀 테스트 및 가짜 응답
+├── docs/                    # 접근 권한 및 kubeconfig 운영 문서
+├── .kube/                   # 인증 파일 (Git 제외)
+└── .kdash/                  # 프로필·마지막 선택·편집 초안 (Git 제외)
+```
+
+`./kdash.sh`, `python3 kdash.py`, `python3 -m kdash_app` 모두 동일한 대시보드를 실행합니다. `kdash_app` 패키지와 실행 파일을 함께 배치해야 합니다. 실행한 디렉터리와 관계없이 프로젝트 루트의 `.kube`와 `.kdash`를 사용합니다. 내부 모듈을 직접 실행하지 마세요.
+
 ## 개발 검증
 
 ```sh
-python3 -m unittest discover -v
+python3 -m unittest discover -s tests -t . -v
 ```
 
 테스트는 데모·모의 kubectl 응답으로 검증하며 실제 클러스터에 생성·수정·삭제 명령을 보내지 않습니다. OS별 실제 터미널 동작과 클러스터 권한은 실행 환경에서 별도로 확인합니다.
@@ -479,7 +538,7 @@ Service별 관측에는 추가 수집원이 필요합니다. 현재 자동 지�
 
 Profiles 목록에는 별명과 `CONF FILE`(conf 파일명)을 표시합니다. context는 파일명이 아니라 conf 안의 클러스터·계정·기본 namespace를 묶은 접속 설정 이름입니다. 접속 설정이 하나이면 자동으로 사용하고, 여러 개이며 기본값이 없으면 클러스터·계정·API 주소를 보고 번호를 선택합니다.
 
-Profiles 화면에서 `a`는 파일 경로로 등록, `v`는 경로와 연결 설정 상세 조회, `e`는 별명 변경, `p`는 Prometheus 설정, `d`는 등록 삭제입니다. 번호 입력은 해당 프로필로 연결합니다. Enter는 현재 프로필로 돌아가며 현재 프로필이 삭제됐다면 첫 프로필을 선택합니다. `q`는 종료합니다. `e`는 접속 설정을 묻거나 클러스터에 조회하지 않습니다. 같은 conf 안의 다른 접속 설정을 선택하려면 고급 옵션 `k`를 사용합니다. 접속 설정을 바꾸면 기존 Prometheus 연결은 해제됩니다. 프로필 목록의 `*`는 현재 선택을 뜻합니다. 선택한 프로필은 현재 실행에만 적용되며 다음 실행은 다시 첫 프로필입니다. `--profile <alias 또는 ID>`로 시작 프로필을 지정할 수 있습니다.
+Profiles 화면에서 `a`는 파일 경로로 등록, `v`는 경로와 연결 설정 상세 조회, `e`는 별명 변경, `p`는 Prometheus 설정, `d`는 등록 삭제입니다. 번호 입력은 해당 프로필로 연결합니다. Enter는 현재 프로필로 돌아가며 현재 프로필이 삭제됐다면 첫 프로필을 선택합니다. `q`는 종료합니다. `e`는 접속 설정을 묻거나 클러스터에 조회하지 않습니다. 같은 conf 안의 다른 접속 설정을 선택하려면 고급 옵션 `k`를 사용합니다. 접속 설정을 바꾸면 기존 Prometheus 연결은 해제됩니다. 프로필 목록의 `*`는 현재 선택을 뜻합니다. 대시보드를 열 때 선택한 프로필 ID를 `.kdash/profiles.json`의 `last_profile_id`에 저장하므로 종료 후에도 유지됩니다. 별명을 변경해도 선택은 유지됩니다. `--demo`, `--config`, `--once` 실행은 마지막 선택을 변경하지 않습니다. 연결 설정을 읽지 못하면 Profiles 관리 화면으로 안내합니다. `--profile <alias 또는 ID>`로 시작 프로필을 지정할 수 있습니다.
 
 삭제는 JSON 등록만 제거하고 kubeconfig 파일은 보존합니다. 초기 파일 자동 등록은 JSON이 없을 때 한 번만 수행하므로 삭제한 프로필이 다음 실행에서 다시 나타나지 않습니다. 나중에 `.kube`에 추가한 파일은 `a`에서 해당 경로를 입력해 등록합니다. 가져오기는 새 파일명으로 저장하므로 기존 파일을 덮어쓰지 않습니다.
 
@@ -498,3 +557,23 @@ Prometheus 설정에서는 다음을 지원합니다.
 인증은 없음, Bearer 토큰 환경변수, Basic 인증 username+password 환경변수를 지원합니다. 토큰/비밀번호 값은 JSON에 저장하지 않습니다. 필요한 환경변수를 설정한 셸에서 실행하세요. HTTPS는 기본 인증서 검증을 사용하며 사설 CA 파일을 지정할 수 있습니다. 인증서 검증 우회 옵션은 제공하지 않습니다.
 
 공식 동작 참고: [Prometheus 조회 API](https://prometheus.io/docs/prometheus/latest/querying/api/), [Kubernetes Service 유형](https://kubernetes.io/docs/concepts/services-networking/service/).
+
+### 네임스페이스 생성
+
+`Clusters → Namespaces` 목록 또는 상세 화면에서 `n`을 누르면 Namespace YAML을 새로 작성합니다. 이름 입력 → 기본 템플릿 편집 → 미리보기 및 서버 dry-run → `create` 입력으로 생성합니다. Namespace는 클러스터 범위이므로 namespace 입력은 묻지 않습니다. 목록이 비어 있어도 생성할 수 있으며, 생성 후 목록을 다시 조회합니다. 생성 권한이 필요하고 취소하면 초안만 남습니다.
+
+초안은 `.kdash/<프로필 별명>/namespaces/<이름>.yaml`에 저장합니다. `D`로 불러와 이어서 작업할 수 있으며, 생성 성공 시 삭제합니다.
+
+### Warnings / Errors 필터
+
+`Event → Warnings` 또는 `Errors` 목록에서 `/`를 누르고 다음처럼 입력합니다.
+
+```text
+namespace=aifactory object=Pod/afp reason=BackOff
+ns=gitlab object=sidekiq
+reason="Failed Scheduling"
+```
+
+`namespace`(`ns`), `object`(`obj`), `reason`을 지원합니다. 여러 조건은 AND이며 대소문자를 구분하지 않는 부분 일치 검색입니다. 공백을 포함한 값은 따옴표로 감쌉니다. `Enter`는 적용, 입력 중 `Esc`는 취소, 목록에서 `x`는 초기화입니다. 메뉴별 필터를 별도로 유지하며 Total과 Matches를 표시합니다. 상세 화면에서는 필터를 입력하지 않고 `Esc`로 목록으로 돌아와 사용합니다.
+
+Warnings는 이벤트의 namespace·대상 kind/name·reason을 검색합니다. Errors는 Kubernetes Error 이벤트가 아니라 KDASH 수집 오류입니다. 오류에 대상 reference가 있을 때 namespace·object를 검색할 수 있고, 대상 정보가 없으면 해당 항목은 `-`로 표시합니다. reason이 별도로 없으면 오류 메시지를 reason 검색에 사용합니다. 대상 정보가 없는 오류도 `reason=Forbidden` 또는 `reason=timeout`으로 찾을 수 있습니다.
