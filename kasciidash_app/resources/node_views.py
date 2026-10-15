@@ -2,6 +2,7 @@
 import concurrent.futures
 from collections import Counter
 
+from kasciidash_app.resources import alarms
 from kasciidash_app.resources import resource_views as rv
 def roles(node):
     labels = rv.field(rv.field(node, 'metadata', {}), 'labels', {})
@@ -46,15 +47,16 @@ def list_lines(data, width, filters, table):
         return ['Nodes unavailable. See Event / Errors for the collection error.']
     if not nodes:
         return ['No matching nodes.' if filters else 'No nodes.']
-    headers = ['NAME', 'ROLES', 'STATUS', 'INTERNAL-IP', 'KUBELET', 'CPU', 'MEMORY', 'PODS']
+    headers = ['NAME', 'ROLES', 'STATUS', 'INTERNAL-IP', 'KUBELET', 'CPU', 'MEMORY', 'PODS', 'ALARMS']
     rows = []
+    alarm_index = alarms.index(data)
     for node in nodes:
         meta, state = rv.field(node, 'metadata', {}), rv.field(node, 'status', {})
         capacity, info = rv.field(state, 'capacity', {}), rv.field(state, 'nodeInfo', {})
         ip = ','.join(a.get('address', '-') for a in rv.field(state, 'addresses', []) if a.get('type') == 'InternalIP') or '-'
         count = 'N/A' if data.get('pods') is None else str(sum(rv.field(p, 'spec', {}).get('nodeName') == meta.get('name') for p in data['pods']))
         rows.append([meta.get('name', '-'), roles(node), status(node), ip, info.get('kubeletVersion', '-'),
-                     capacity.get('cpu', '-'), capacity.get('memory', '-'), count])
+                     capacity.get('cpu', '-'), capacity.get('memory', '-'), count, alarm_index.label(dict(node,kind='Node'))])
     selected = (data.get('resource_state') or {}).get('index')
     if width >= 100:
         return ['CPU / MEMORY: capacity | PODS: currently retained objects assigned to node',

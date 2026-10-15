@@ -5,6 +5,7 @@ import datetime as dt
 import re
 import textwrap
 
+from kasciidash_app.resources import alarms
 from kasciidash_app.resources import resource_views as rv
 from kasciidash_app.topology import namespace_topology
 from kasciidash_app.topology import workload_topology
@@ -55,11 +56,12 @@ def list_lines(data, width, filters, table):
     if not rows:
         return ['No matching namespaces.' if filters else 'No namespaces.']
     counts = Counter(meta(p).get('namespace') for p in data.get('pods') or [])
-    values = [[meta(obj).get('name', '-'), phase(obj), 'N/A' if data.get('pods') is None else counts[meta(obj).get('name')], rv.age(obj)] for obj in rows]
+    alarm_index = alarms.index(data)
+    values = [[meta(obj).get('name', '-'), phase(obj), 'N/A' if data.get('pods') is None else counts[meta(obj).get('name')], rv.age(obj), alarm_index.label(dict(obj,kind='Namespace'))] for obj in rows]
     selected = (data.get('resource_state') or {}).get('index')
     if width >= 65:
-        return table(['NAME', 'STATE', 'PODS', 'AGE'], values, width, selected=selected, stretch=True)
-    return [line for i, row in enumerate(values) for line in table(['> FIELD' if i == selected else 'FIELD', 'VALUE'], list(map(list, zip(('NAME', 'STATE', 'PODS', 'AGE'), row))), width)]
+        return table(['NAME', 'STATE', 'PODS', 'AGE', 'ALARMS'], values, width, selected=selected, stretch=True)
+    return [line for i, row in enumerate(values) for line in table(['> FIELD' if i == selected else 'FIELD', 'VALUE'], list(map(list, zip(('NAME', 'STATE', 'PODS', 'AGE', 'ALARMS'), row))), width)]
 
 
 def load(client, item):

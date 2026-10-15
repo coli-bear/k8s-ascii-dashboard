@@ -292,7 +292,7 @@ Workloads, Network, Config, Storage, Access/RBAC와 API Resources 목록에서 `
 
 | 상세 화면 키 | 동작 |
 | --- | --- |
-| 좌/우 | YAML → Describe → Logs 탭 전환. Logs는 지원하는 워크로드에서만 표시 |
+| 좌/우 | YAML → Describe → Logs 및 Warnings / Errors 탭 전환. Logs는 지원하는 워크로드에서만 표시 |
 | Esc | 상세 → 기존 목록. API Resources에서는 다음 Esc가 카탈로그로 이동 |
 | u/d, 휠, ↑/↓ | 상세 내용 스크롤 |
 | r | 현재 상세 탭 다시 조회 |
@@ -587,3 +587,23 @@ reason="Failed Scheduling"
 `namespace`(`ns`), `object`(`obj`), `reason`을 지원합니다. 여러 조건은 AND이며 대소문자를 구분하지 않는 부분 일치 검색입니다. 공백을 포함한 값은 따옴표로 감쌉니다. `Enter`는 적용, 입력 중 `Esc`는 취소, 목록에서 `x`는 초기화입니다. 메뉴별 필터를 별도로 유지하며 Total과 Matches를 표시합니다. 상세 화면에서는 필터를 입력하지 않고 `Esc`로 목록으로 돌아와 사용합니다.
 
 Warnings는 이벤트의 namespace·대상 kind/name·reason을 검색합니다. Errors는 Kubernetes Error 이벤트가 아니라 KAsciiDash 수집 오류입니다. 오류에 대상 reference가 있을 때 namespace·object를 검색할 수 있고, 대상 정보가 없으면 해당 항목은 `-`로 표시합니다. reason이 별도로 없으면 오류 메시지를 reason 검색에 사용합니다. 대상 정보가 없는 오류도 `reason=Forbidden` 또는 `reason=timeout`으로 찾을 수 있습니다.
+
+## 리소스별 알람과 목록 이동
+
+Workloads, Network, Config, Storage, Access/RBAC, API Resources, Nodes, Namespaces 목록에 **ALARMS** 열을 표시합니다. 목록에서 선택 후 Enter로 연 상세 화면의 **Warnings | Errors** 탭에서도 같은 범위의 기록을 확인합니다. 두 탭은 현재 수집 스냅샷을 사용하며 행마다 추가 kubectl 조회를 실행하지 않습니다. `r`은 관련 스냅샷을 새로 수집하고, 좌우 키로 기존 상세 탭과 전환합니다.
+
+| 대상 | 알람 포함 범위 |
+| --- | --- |
+| Pod 및 일반 리소스 | 해당 객체 UID의 기록, 소유한 하위 객체가 있으면 그 기록도 포함 |
+| Deployment·StatefulSet 등 | 본인과 ownerReferences로 연결된 하위 ReplicaSet·Pod 등의 기록 |
+| Service | 본인과 같은 namespace에서 selector가 일치하는 Pod의 기록. 실제 트래픽 연결을 뜻하지 않음 |
+| Node | 본인과 해당 노드에 할당된 Pod의 기록 |
+| Namespace | 해당 namespace에 보관된 관련 기록 |
+
+ALARMS는 **Warnings + Errors의 고유 기록 수**입니다. 동일 Event UID나 같은 수집 오류가 반복 참조돼도 한 번만 세며 Event의 `count`/series 발생 횟수를 합산하지 않습니다. Pod 장애 수·발생 횟수·Prometheus firing alert 수와는 별도 지표입니다. 오래된 객체 UID의 기록을 같은 이름으로 교체된 새 객체에 붙이지 않습니다.
+
+Warnings는 Warning 이벤트, Errors는 대상 reference가 있는 수집 오류 및 Error 타입 이벤트를 반환하는 환경의 해당 이벤트입니다. Kubernetes는 일반적으로 Normal/Warning 이벤트를 사용하므로 Errors가 0이어도 Pod가 정상이라는 뜻은 아닙니다. 대상 없는 수집 오류는 개별 리소스에 임의 배분하지 않고 기존 Event → Errors에서 확인합니다. 이벤트 조회가 실패하면 ALARMS는 `N/A` 또는 알려진 오류 수에 `+?`를 붙여 불완전함을 표시합니다.
+
+목록 선택 계산은 스냅샷·리소스·필터별로 재사용합니다. 넓은 표에서는 커서 이동 시 이미 포맷한 표의 선택 표시만 바꿉니다. 새 수집 결과·필터·탭·화면 폭이 변경되면 다시 계산하며, 좁은 화면의 카드 표시는 기존 포맷을 유지합니다. 상세 조회 전용 실행 풀을 사용해 모니터링/목록 수집 대기열의 영향을 줄이고, 닫은 상세의 오래된 결과를 새 대상에 표시하지 않습니다.
+
+알람의 하위 자원 범위는 현재 수집된 객체·ownerReferences 기준입니다. 수집하지 않은 중간 CRD/Job 등은 연결이 누락될 수 있습니다. Pod 또는 ReplicaSet 조회가 실패한 관련 목록은 N/A/부분 값으로 표시하며, 모든 클러스터 기록을 영구 보관하거나 완전한 장애 건수를 계산하는 기능은 아닙니다.

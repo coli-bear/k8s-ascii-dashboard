@@ -74,3 +74,13 @@ python3 -B -m unittest tests.test_yaml_storage tests.test_event_filters -v
 이번 변경의 실제 실행 환경과 제한은 [리뷰 수정 QA 기록](qa-review-fixes-2026-10-15.md)에 정리했습니다.
 
 `tests.test_registry_resolution`은 복구 화면의 명시적 선택·취소, 전체 원본 백업, 백업 실패, 선택 중 외부 변경, 대화형 시작과 `--once`의 분리를 검증합니다.
+
+## 목록 이동과 알람 집계
+
+`ui/list_cache.py`는 행 선택 결과와 넓은 표의 커서 표시를 재사용합니다. 키에 스냅샷·수집 revision·필터·메뉴가 반영돼야 합니다. 오래된 행이나 표시 순서가 상세 선택 대상과 달라지지 않도록 함께 검증합니다. 표가 줄바꿈되더라도 선택 행 시작 위치를 보존합니다.
+
+`resources/alarms.py`는 UID·ownerReferences·Service selector별 스냅샷 인덱스를 구성합니다. 목록 ALARMS와 상세 Warnings/Errors는 이 인덱스를 공유하며 행별 네트워크 요청을 추가하지 않습니다. 필터·스크롤·일반 탭 이동이 알람을 다시 수집하는 동작으로 바뀌지 않도록 합니다. Event 대상이 다른 UID로 교체되면 이름만으로 이어붙이지 않습니다. 일반 수집 오류처럼 reference가 없는 기록은 개별 객체에 배분하지 않습니다.
+
+`tests.test_navigation_performance`는 유휴/커서 이동 시 필터·표 재생성 횟수와 오래된 상세 결과 격리를 검증합니다. `tests.test_resource_alarms`는 소유 관계·Service selector·반복 Event·reference 오류·교체 UID·수집 실패와 상세 탭을 검증합니다. 실제 클러스터 응답 시간을 측정하는 테스트는 아닙니다.
+
+측정 범위와 결과는 [목록 성능·알람 검증 기록](performance-and-alarms-2026-10-15.md)을 참고하세요.

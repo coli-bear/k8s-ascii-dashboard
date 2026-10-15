@@ -3,6 +3,7 @@ import copy
 import json
 import re
 import textwrap
+from kasciidash_app.resources import alarms
 from kasciidash_app.resources import node_views
 from kasciidash_app.resources import namespace_views
 from kasciidash_app.resources import event_resources
@@ -154,17 +155,29 @@ def demo(item, mode):
     return 'DEMO: synthetic describe preview\nName: ' + item['name'] + '\nNamespace: ' + (item.get('namespace') or '<cluster>') + '\nResource: ' + item['resource'] + '\n', None
 
 
+def detail_modes(item):
+    if item.get('event_context'):
+        return ['event'] + ([] if item.get('read_only') else ['describe', 'yaml'])
+    modes = (['status'] if item['resource'] == 'nodes' else list(namespace_views.MODES) if item['resource'] == 'namespaces' else [])
+    modes += ['yaml', 'describe'] + (['logs'] if item['resource'] in LOG_RESOURCES else [])
+    if item['resource'] != 'namespaces' and workload_topology.supports(item):modes += ['topology']
+    return modes + ['warnings', 'errors']
+
+
 class Detail:
     def __init__(self):
         self.item, self.future = None, None
         self.generation, self.mode, self.saved_offset = 0, 'yaml', 0
         self.buffers = {}
         self.request = None
+        self.alarm_counts = None
         self.topology_cursor = Selection()
         self.topology_target = None
         self.topology_inventory, self.topology_snapshot, self.topology_workloads = None, None, []
 
     def open(self, item, offset):
+        self.cancel_pending()
+        self.alarm_counts = None
         self.generation += 1
         self.item, self.mode = copy.deepcopy(item), 'status' if item['resource'] == 'nodes' else 'overview' if item['resource'] == 'namespaces' else 'yaml'
         self.saved_offset, self.buffers = offset, {}
@@ -177,10 +190,19 @@ class Detail:
         self.item, self.buffers = None, {}
         self.topology_target = None
         self.topology_inventory, self.topology_snapshot, self.topology_workloads = None, None, []
+        self.cancel_pending()
+
+    def cancel_pending(self):
         if self.future:
             self.future.cancel()
+        self.future, self.request = None, None
+
+    def modes(self):
+        return detail_modes(self.item)
 
     def open_event(self, row, view, offset):
+        self.cancel_pending()
+        self.alarm_counts = None
         ref = event_resources.reference(row) or {}
         self.generation += 1
         self.item = dict(event_context=True, event_row=copy.deepcopy(row), event_view=view,
@@ -190,10 +212,11 @@ class Detail:
         self.mode, self.saved_offset, self.buffers = 'event', offset, {'event': ('', None)}
 
     def switch(self, step=1):
-        modes = (['event'] + ([] if self.item.get('read_only') else ['describe', 'yaml']) if self.item.get('event_context') else
-                 (['status'] if self.item['resource'] == 'nodes' else list(namespace_views.MODES) if self.item['resource'] == 'namespaces' else []) + ['yaml', 'describe'] + (['logs'] if self.item['resource'] in LOG_RESOURCES else []) + (['topology'] if self.item['resource'] != 'namespaces' and workload_topology.supports(self.item) else []))
+        modes = self.modes()
         current = 'logs' if self.mode == 'logs_previous' else self.mode
         self.mode = modes[(modes.index(current) + step) % len(modes)]
+        if self.future and self.request and self.request[1] != self.mode:
+            self.cancel_pending()
 
     def previous(self):
         if self.mode in ('logs', 'logs_previous'):
@@ -201,6 +224,7 @@ class Detail:
 
     def refresh(self, all_modes=False):
         self.generation += 1
+        self.cancel_pending()
         if all_modes:
             self.buffers.clear()
         elif self.item and self.item['resource'] == 'namespaces' and self.mode in namespace_views.MODES:
@@ -211,7 +235,14 @@ class Detail:
         if self.item and self.item.get('event_context'):
             self.buffers['event'] = ('', None)
 
-    def poll(self, executor, loader):
+    def poll(self, executor, loader, data=None):
+        if self.item and not self.item.get('event_context'):
+            data = data if data is not None else {'events': None, 'errors': []}
+            warning = alarms.detail_data(data, self.item, 'warnings')
+            errors = alarms.detail_data(data, self.item, 'errors')
+            self.alarm_counts = {'warnings': len(warning['rows']), 'errors': len(errors['rows']), 'available': warning['available']}
+            if self.mode in ('warnings', 'errors'):
+                self.buffers[self.mode] = (warning if self.mode == 'warnings' else errors, None)
         if self.future and self.future.done():
             if not self.future.cancelled() and self.request[0] == self.generation and self.item:
                 try:
@@ -268,7 +299,7 @@ class Detail:
         output, error = self.buffers.get(self.mode, (None, None))
         self.topology_rows()
         return dict(target=self.item, mode=self.mode, output=output, error=error,
-                    loading=self.mode not in self.buffers, generation=self.generation,
+                    loading=self.mode not in self.buffers, generation=self.generation, alarm_counts=self.alarm_counts,
                     topology_state=dict(index=self.topology_cursor.indices.get('workloads', 0), target=self.topology_target))
 
 
@@ -285,8 +316,14 @@ def header(state, width, clean):
         lines += ['Status: ' + problem if problem else 'Target: %s/%s | Namespace: %s' % (ref['kind'], ref['name'], ref.get('namespace') or '(API scope)'),
                   'Snapshot: original event retained.' if problem else 'Actions: e: edit target YAML | original UID checked before read/edit', '-' * width]
         return [part for line in lines for part in textwrap.wrap(clean(line), width) or ['']]
-    tabs = (['Status'] if item['resource'] == 'nodes' else ['Overview', 'Resources', 'TreeView', 'Topology'] if item['resource'] == 'namespaces' else []) + ['YAML', 'Describe'] + (['Logs'] if item['resource'] in LOG_RESOURCES else []) + (['Topology'] if item['resource'] != 'namespaces' and workload_topology.supports(item) else [])
-    lines = [('[' + name + ']' if mode == name.lower() else name) for name in tabs]
+    labels = {'yaml':'YAML','treeview':'TreeView'}
+    counts = state.get('alarm_counts') or {}
+    tabs = [(key, labels.get(key, key.title())) for key in detail_modes(item)]
+    lines = []
+    for key,label in tabs:
+        if key in ('warnings','errors') and counts:
+            label += ' (' + (str(counts.get(key, 0)) if counts.get('available') else '?') + ')'
+        lines.append('['+label+']' if mode == key else label)
     lines = ['Tabs: ' + ' | '.join(lines), 'Keys: Left/Right: detail tab | Esc: list | r: reload',
              'Target: ' + item['resource'] + ' | ' + (item.get('namespace') + '/' if item.get('namespace') else '') + item['name'], '-' * width]
     operations = 'Actions: e: edit YAML | n: new YAML | a: operations'
@@ -311,6 +348,8 @@ def content(state, width, clean, table=None):
     if state['target'].get('event_context') and state['mode'] == 'event':
         item = state['target']
         return event_views.content({'event_state': {'detail': item['event_row']}}, item['event_view'], width, clean)
+    if state['mode'] in ('warnings', 'errors') and isinstance(state.get('output'), dict):
+        return alarms.render(state['output'], width, clean, table)
     if state['loading']:
         return ['Loading ' + state['mode'].upper() + '... | Esc: return to list']
     if isinstance(state.get('output'), dict) and state['mode'] == 'topology':

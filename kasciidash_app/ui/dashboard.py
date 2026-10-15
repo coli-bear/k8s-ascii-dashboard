@@ -13,6 +13,8 @@ import subprocess
 import sys
 import time
 import textwrap
+from kasciidash_app.resources import alarms
+from kasciidash_app.ui.list_cache import RowCache, CursorContent
 from kasciidash_app.resources import resource_views as rv
 from kasciidash_app.config import profiles
 from kasciidash_app.monitoring import prometheus as monitoring
@@ -302,6 +304,8 @@ def workload_lines(data, width=120, kind=None):
             continue
         headers = (['NAMESPACE', 'NAME', 'PHASE', 'RESTARTS', 'NODE', 'STATUS'] if kind == 'pods'
                    else ['NAMESPACE', 'NAME', 'READY', 'DESIRED', 'STATUS'])
+        headers.append('ALARMS')
+        alarm_index = alarms.index(data)
         rows = []
         for obj in sorted(objects, key=lambda o: (rv.field(o['metadata'], 'namespace', 'default'), o['metadata']['name'])):
             metadata, status = obj['metadata'], rv.field(obj, 'status', {})
@@ -314,6 +318,7 @@ def workload_lines(data, width=120, kind=None):
             else:
                 row += [str(rv.field(status, 'readyReplicas', 0)), str(rv.field(rv.field(obj, 'spec', {}), 'replicas', 1)),
                         controller_issue(obj) or 'OK']
+            row.append(alarm_index.label(dict(obj, kind=obj.get('kind') or alarms.KINDS[kind])))
             rows.append(row)
         if width >= 85:
             lines += ascii_table(headers, rows, width,
@@ -466,7 +471,11 @@ def resource_lines(data, resource, width, filters=None):
         return ['No resources.']
     try:
         objects = rv.filter_items(objects, filters or {}, rv.status_text)
+        objects = resource_detail.sort_objects(objects)
         headers, rows = rv.columns(name, objects)
+        headers.append('ALARMS')
+        alarm_index = alarms.index(data)
+        for obj,row in zip(objects,rows):row.append(alarm_index.label(obj))
     except (TypeError, ValueError, AttributeError, KeyError) as exc:
         message = 'Cannot render %s: %s: %s' % (name, type(exc).__name__, exc)
         data.setdefault('resource_errors', {})['render:' + name] = message
@@ -634,7 +643,9 @@ def layout(data, view='1', width=120, offset=0, height=None, content=None, workl
     topology_detail = data.get('resource_detail') or {}
     topology_list = (topology_detail.get('mode') == 'topology' and (topology_detail.get('target') or {}).get('resource') == 'namespaces' and not (topology_detail.get('topology_state') or {}).get('target'))
     if topology_list or ((rv.menu_group(view) == 'Resources' or view in ('N', 'Z')) and data.get('resource_state') is not None and not data.get('resource_detail')):
-        row_line = next((i for i, line in enumerate(content) if '| > ' in line), None)
+        row_line = getattr(content, 'selected_line', None)
+        if row_line is None:
+            row_line = next((i for i, line in enumerate(content) if '| > ' in line), None)
         if row_line is not None:
             offset = min(offset, row_line)
             if row_line >= offset + available:
@@ -752,6 +763,9 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
     data, last_draw = None, None
     cached_key, cached_content = None, None
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+    detail_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+    row_cache, event_cache = RowCache(), RowCache()
+    collection_revision = 0
     future = executor.submit(loader)
     due = time.monotonic() + interval
     force_resource = False
@@ -767,6 +781,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
         while True:
             changed = False
             if future and future.done():
+                collection_revision += 1
                 data = future.result()
                 future = None
                 due = time.monotonic() + interval
@@ -775,6 +790,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                     force_snapshot = False
                 changed = True
             if resource_future and resource_future.done():
+                collection_revision += 1
                 try:
                     objects, error = resource_future.result()
                 except Exception as exc:
@@ -787,6 +803,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                 resource_future = None
                 changed = True
             if discovery_future and discovery_future.done():
+                collection_revision += 1
                 try:
                     catalog, catalog_errors = discovery_future.result()
                 except Exception as exc:
@@ -831,7 +848,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                             catalog_errors=catalog_errors, catalog_loaded=catalog_loaded)
             if data is not None:
                 data['event_filters'] = event_filters
-            event_rows = event_views.records(data, view) if data is not None and view in ('4', '5') else []
+            event_rows = event_cache.get((view, collection_revision, tuple(sorted(event_filters.get(view, {}).items())), str(data.get('resource_errors') or {})), data, lambda: event_views.records(data, view)) if data is not None and view in ('4', '5') else []
             if data is not None and view in ('4', '5'):
                 event_browser.reconcile(view, event_rows)
                 event_state = event_browser.state(view)
@@ -845,13 +862,19 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
             can_filter = view in ('3', 'm') or is_event_list or request is not None
             active_filters = (event_filters[view] if view in ('4', '5') else monitor_filters.get(monitoring_tab, {}) if view == 'm' else filters[kind] if view == '3' else
                               resource_filters.get(request['name'], {}) if request else {})
-            selectable, resource_rows = resource_selection(data, view, kind, request, active_filters)
+            selection_cache_key = (view, kind, str(request), tuple(sorted(active_filters.items())), collection_revision)
+            selectable, resource_rows = row_cache.get(selection_cache_key, data, lambda: resource_selection(data, view, kind, request, active_filters))
             selection_key = (view, selectable['name']) if selectable else None
-            detail_browser.poll(executor, detail_loader)
+            detail_browser.poll(detail_executor, detail_loader, data)
             if data is not None:
                 selection_state = {'index': resource_browser.reconcile(selection_key, resource_rows)} if selectable else None
                 detail_state = detail_browser.state()
-                if data.get('resource_state') != selection_state or data.get('resource_detail') != detail_state:
+                selection_changed = data.get('resource_state') != selection_state
+                detail_changed = data.get('resource_detail') != detail_state
+                if selection_changed and selection_state is not None and not detail_changed and isinstance(cached_content, CursorContent) and cached_content.enabled:
+                    cached_content.select(selection_state['index'])
+                    last_draw = None
+                elif selection_changed or detail_changed:
                     changed = True
                 data.update(resource_state=selection_state, resource_detail=detail_state)
             is_resource_list = selectable is not None and detail_browser.item is None
@@ -884,6 +907,8 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                     if cached_key != content_key:
                         cached_content = content_lines(data, view, inner, kind, active_filters,
                                                        category_tab, api_resource, catalog_query, catalog_index, monitoring_tab)
+                        if is_resource_list and inner >= 100:
+                            cached_content = CursorContent(cached_content, len(resource_rows))
                         cached_key = content_key
                     lines, total, visible, offset = layout(data, view, w - 1, offset, h - 1,
                         content=cached_content, workload_kind=kind, focus=focus, selected=selected,
@@ -983,6 +1008,14 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                 if key == ord('r') and detail_browser.mode != 'event':
                     detail_browser.refresh()
                     continue
+            if focus == 'content' and detail_browser.item and detail_browser.mode in ('warnings', 'errors') and key == ord('r'):
+                detail_browser.refresh()
+                if future is None:
+                    future = executor.submit(loader)
+                else:
+                    force_snapshot = True
+                force_resource = True
+                continue
             if focus == 'content' and view in ('N', 'Z') and detail_browser.item and key == ord('r'):
                 detail_browser.refresh()
                 continue
@@ -1156,6 +1189,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
         if native_mouse:
             curses.mousemask(0)
         executor.shutdown(wait=True, cancel_futures=True)
+        detail_executor.shutdown(wait=True, cancel_futures=True)
 
 
 def identity(client, config, requested_context):

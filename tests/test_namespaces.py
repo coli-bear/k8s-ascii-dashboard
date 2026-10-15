@@ -104,7 +104,7 @@ class NamespaceTests(unittest.TestCase):
         browser.poll(pool, loader)
         future.set_result((nv.demo(), None))
         browser.poll(pool, loader)
-        for mode in ('overview', 'resources', 'treeview', 'topology', 'yaml', 'describe'):
+        for mode in ('overview', 'resources', 'treeview', 'topology', 'yaml', 'describe', 'warnings', 'errors'):
             self.assertEqual(browser.mode, mode)
             if mode in nv.MODES:
                 self.assertFalse(browser.state()['loading'])
