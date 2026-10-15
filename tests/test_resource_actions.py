@@ -6,7 +6,7 @@ import stat
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
-from kdash_app.resources import resource_actions as a
+from kuba_dm_app.resources import resource_actions as a
 def selected(resource='deployments.apps'):
     return dict(resource=resource,name='web',namespace='prod',namespaced=True,uid='original')
 
@@ -26,7 +26,7 @@ class ActionTests(unittest.TestCase):
         self.assertEqual(a.available(selected('services')),['delete'])
         self.assertNotIn('restart',a.available(selected('replicasets.apps')))
         c=client()
-        with patch('kdash_app.resources.resource_actions.profiles.prompt',side_effect=['2','']),patch('builtins.print'):
+        with patch('kuba_dm_app.resources.resource_actions.profiles.prompt',side_effect=['2','']),patch('builtins.print'):
             a.change(c,selected())
         c.text.assert_not_called()
         self.assertEqual(c.call.call_args.args[:3],('get','deployments.apps','web'))
@@ -34,7 +34,7 @@ class ActionTests(unittest.TestCase):
     def test_scale_restart_delete_scope_and_confirmation(self):
         for answers, expected in [(['1','4','start'],'scale'),(['2','stop'],'scale'),(['3','restart'],'patch'),(['4','delete'],'delete')]:
             c=client()
-            with patch('kdash_app.resources.resource_actions.profiles.prompt',side_effect=answers),patch('builtins.print'):
+            with patch('kuba_dm_app.resources.resource_actions.profiles.prompt',side_effect=answers),patch('builtins.print'):
                 a.change(c,selected())
             args=c.text.call_args.args
             self.assertEqual(args[0],expected)
@@ -54,7 +54,7 @@ class ActionTests(unittest.TestCase):
                 operations=json.loads(args[args.index('-p')+1])
                 self.assertEqual(operations[:2],[{'op':'test','path':'/metadata/uid','value':'original'},{'op':'test','path':'/metadata/resourceVersion','value':'5'}])
         c=client();other=obj();other['metadata']['uid']='replacement';c.call.return_value=(other,None)
-        with self.assertRaises(ValueError),patch('kdash_app.resources.resource_actions.profiles.prompt',return_value='4'),patch('builtins.print'):
+        with self.assertRaises(ValueError),patch('kuba_dm_app.resources.resource_actions.profiles.prompt',return_value='4'),patch('builtins.print'):
             a.change(c,selected())
         c.text.assert_not_called()
 
@@ -73,14 +73,14 @@ class ActionTests(unittest.TestCase):
             c=client()
             c.call.side_effect=[({'preferredVersion':{'groupVersion':'apps/v1'}},None),
                                 ({'resources':[{'name':'deployments','kind':'Deployment','namespaced':True,'verbs':['create']}]},None), (obj(),None)]
-            with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ,{'EDITOR':'editor --wait','VISUAL':''}),patch('kdash_app.resources.resource_actions.subprocess.run',return_value=Mock(returncode=0)) as edit,patch('kdash_app.resources.resource_actions.profiles.prompt',side_effect=['web','prod','',deploy]),patch('builtins.print'):
+            with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ,{'EDITOR':'editor --wait','VISUAL':''}),patch('kuba_dm_app.resources.resource_actions.subprocess.run',return_value=Mock(returncode=0)) as edit,patch('kuba_dm_app.resources.resource_actions.profiles.prompt',side_effect=['web','prod','',deploy]),patch('builtins.print'):
                 a.edit_yaml(c,Path(directory),selected(),new=True)
                 if not deploy:
-                    draft=next((Path(directory)/'.kdash').rglob('*.yaml'))
+                    draft=next((Path(directory)/'.kuba-dm').rglob('*.yaml'))
                     self.assertEqual(stat.S_IMODE(draft.stat().st_mode),0o600)
                     self.assertIn('kind: Deployment',draft.read_text())
                 else:
-                    self.assertFalse(list((Path(directory)/'.kdash').rglob('*.yaml')))
+                    self.assertFalse(list((Path(directory)/'.kuba-dm').rglob('*.yaml')))
                 self.assertEqual(edit.call_args.args[0][:2],['editor','--wait'])
                 self.assertEqual(c.call.call_args.args[:2],('create','--dry-run=server'))
                 if deploy:
@@ -96,19 +96,19 @@ class ActionTests(unittest.TestCase):
             c.text.return_value=('apiVersion: apps/v1\nkind: Deployment\n',None)
             if failure=='diff': c.run.return_value=Mock(returncode=2,stdout='',stderr='diff failed')
             prompts=['',''] if failure in ('validation','identity','cancel') else ['','apply']
-            with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{'EDITOR':'editor','VISUAL':''}),patch('kdash_app.resources.resource_actions.subprocess.run',return_value=Mock(returncode=0)),patch('kdash_app.resources.resource_actions.profiles.prompt',side_effect=prompts),patch('builtins.print'):
+            with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{'EDITOR':'editor','VISUAL':''}),patch('kuba_dm_app.resources.resource_actions.subprocess.run',return_value=Mock(returncode=0)),patch('kuba_dm_app.resources.resource_actions.profiles.prompt',side_effect=prompts),patch('builtins.print'):
                 if failure=='diff':
                     with self.assertRaises(ValueError): a.edit_yaml(c,Path(directory),selected())
                 else: a.edit_yaml(c,Path(directory),selected())
                 applies=[call for call in c.text.call_args_list if call.args[0]=='apply']
                 self.assertEqual(len(applies),int(failure=='success'))
-                self.assertFalse(list((Path(directory)/'.kdash').rglob('*.yaml')))
+                self.assertFalse(list((Path(directory)/'.kuba-dm').rglob('*.yaml')))
 
     def test_exec_argv_has_selected_profile_namespace_pod_container_and_no_local_shell(self):
         c=client();pod={'apiVersion':'v1','kind':'Pod','metadata':{'name':'web','namespace':'prod','uid':'original'},'spec':{'containers':[{'name':'app'}]},'status':{'phase':'Running','containerStatuses':[{'name':'app','state':{'running':{}}}]}}
         c.call.return_value=(pod,None)
         for confirm in ('','exec'):
-            with patch('kdash_app.resources.resource_actions.profiles.prompt',side_effect=['3','sh -c "echo hello; id"',confirm]),patch('kdash_app.resources.resource_actions.terminal_exec.run',return_value=0) as run,patch('builtins.print'):
+            with patch('kuba_dm_app.resources.resource_actions.profiles.prompt',side_effect=['3','sh -c "echo hello; id"',confirm]),patch('kuba_dm_app.resources.resource_actions.terminal_exec.run',return_value=0) as run,patch('builtins.print'):
                 a.exec_command(c,selected('pods'))
                 if confirm:
                     args=run.call_args.args[0]

@@ -2,7 +2,7 @@
 import concurrent.futures
 from collections import Counter
 
-from kdash_app.resources import resource_views as rv
+from kuba_dm_app.resources import resource_views as rv
 def roles(node):
     labels = rv.field(rv.field(node, 'metadata', {}), 'labels', {})
     values = [key.split('/', 1)[1] for key in labels if key.startswith('node-role.kubernetes.io/')]

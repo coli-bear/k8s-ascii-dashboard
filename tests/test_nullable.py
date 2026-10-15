@@ -1,16 +1,16 @@
 import unittest
 from unittest.mock import Mock, patch
 from concurrent.futures import Future
-from kdash_app.ui import dashboard as kdash
-from kdash_app.resources import resource_views as rv
+from kuba_dm_app.ui import dashboard as kuba_dm
+from kuba_dm_app.resources import resource_views as rv
 class NullableResponseTests(unittest.TestCase):
     def test_reported_endpointslice_null(self):
         obj = {'metadata': {'name': 'empty', 'namespace': 'default'}, 'endpoints': None, 'ports': None}
         headers, rows = rv.columns('endpointslices.discovery.k8s.io', [obj])
         self.assertEqual(dict(zip(headers, rows[0]))['READY/TOTAL'], '0/0')
-        data = kdash.demo()
+        data = kuba_dm.demo()
         data['extras'] = {'endpointslices.discovery.k8s.io': [obj]}
-        lines = kdash.content_lines(data, '6', 115, category_tab=1)
+        lines = kuba_dm.content_lines(data, '6', 115, category_tab=1)
         self.assertIn('0/0', '\n'.join(lines))
 
     def test_nullable_fields_across_categories(self):
@@ -50,11 +50,11 @@ class NullableResponseTests(unittest.TestCase):
     def test_workload_optional_status_maps(self):
         pod = {'metadata': {'name': 'p'}, 'spec': {'containers': [], 'initContainers': None, 'overhead': None},
                'status': {'phase': 'Running', 'containerStatuses': None, 'initContainerStatuses': None, 'conditions': None}}
-        self.assertEqual(kdash.pod_issue(pod), 'NotReady')
-        self.assertEqual(kdash.pod_requests(pod)['cpu'], 0)
+        self.assertEqual(kuba_dm.pod_issue(pod), 'NotReady')
+        self.assertEqual(kuba_dm.pod_requests(pod)['cpu'], 0)
         controller = {'kind': 'Deployment', 'metadata': {'name': 'd'}, 'spec': {'replicas': 0},
                       'status': {'conditions': None, 'readyReplicas': None, 'updatedReplicas': None, 'availableReplicas': None}}
-        self.assertEqual(kdash.controller_issue(controller), '')
+        self.assertEqual(kuba_dm.controller_issue(controller), '')
 
     def test_unknown_resource_group_and_status_shapes(self):
         for status in ('CustomState', ['Ready'], {'conditions': {'custom': True}}, None):
@@ -66,13 +66,13 @@ class NullableResponseTests(unittest.TestCase):
         self.assertEqual(rv.selector({'matchLabels': None, 'matchExpressions': None}, label_selector=True), '<all>')
 
     def test_render_failure_is_visible_and_clears_after_recovery(self):
-        data = kdash.demo()
+        data = kuba_dm.demo()
         data['extras'] = {'services': [{'metadata': {'name': 'bad'}, 'spec': {'externalIPs': 23}}]}
         resource = {'name': 'services', 'namespaced': True}
-        self.assertIn('Cannot render services', '\n'.join(kdash.resource_lines(data, resource, 115)))
+        self.assertIn('Cannot render services', '\n'.join(kuba_dm.resource_lines(data, resource, 115)))
         self.assertIn('render:services', data['resource_errors'])
         data['extras']['services'] = rv.demo_resource('services', True)[0]
-        self.assertIn('CLUSTER-IP', '\n'.join(kdash.resource_lines(data, resource, 115)))
+        self.assertIn('CLUSTER-IP', '\n'.join(kuba_dm.resource_lines(data, resource, 115)))
         self.assertNotIn('render:services', data['resource_errors'])
 
     def test_bad_response_and_failed_loader_do_not_break_tab_navigation(self):
@@ -86,7 +86,7 @@ class NullableResponseTests(unittest.TestCase):
             def shutdown(self, **kwargs): pass
         class Terminal:
             def __init__(self):
-                self.keys = iter([ord('6'), 10, -1, kdash.curses.KEY_RIGHT, -1, kdash.curses.KEY_RIGHT, -1, ord('q')])
+                self.keys = iter([ord('6'), 10, -1, kuba_dm.curses.KEY_RIGHT, -1, kuba_dm.curses.KEY_RIGHT, -1, ord('q')])
                 self.output = []
             def timeout(self, value): pass
             def getmaxyx(self): return 45, 160
@@ -101,10 +101,10 @@ class NullableResponseTests(unittest.TestCase):
                 raise TypeError('fixture malformed response')
             return rv.demo_resource(name, scope)
         terminal = Terminal()
-        with patch('kdash_app.ui.dashboard.curses.curs_set'), patch('kdash_app.ui.dashboard.curses.set_escdelay', create=True), \
-             patch('kdash_app.ui.dashboard.curses.mousemask'), patch('kdash_app.ui.dashboard.curses.mouseinterval'), patch('kdash_app.ui.dashboard.sys.stdout'), \
-             patch('kdash_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor', Pool):
-            self.assertEqual(kdash.screen(terminal, kdash.demo, 30, resource_loader=load), 'quit')
+        with patch('kuba_dm_app.ui.dashboard.curses.curs_set'), patch('kuba_dm_app.ui.dashboard.curses.set_escdelay', create=True), \
+             patch('kuba_dm_app.ui.dashboard.curses.mousemask'), patch('kuba_dm_app.ui.dashboard.curses.mouseinterval'), patch('kuba_dm_app.ui.dashboard.sys.stdout'), \
+             patch('kuba_dm_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor', Pool):
+            self.assertEqual(kuba_dm.screen(terminal, kuba_dm.demo, 30, resource_loader=load), 'quit')
         output = '\n'.join(terminal.output)
         self.assertIn('Cannot render services', output)
         self.assertIn('Resource collection failed', output)

@@ -1,1 +1,1 @@
-"""KDASH regression tests."""
+"""KUBA-DM regression tests."""

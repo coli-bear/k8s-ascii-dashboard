@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kubernetes ASCII operations dashboard. Python standard library only."""
+"""Kubernetes administration in your terminal. Python standard library only."""
 import argparse
 import concurrent.futures
 import curses
@@ -13,14 +13,14 @@ import subprocess
 import sys
 import time
 import textwrap
-from kdash_app.resources import resource_views as rv
-from kdash_app.config import profiles
-from kdash_app.monitoring import prometheus as monitoring
-from kdash_app.resources import event_views
-from kdash_app.resources import resource_detail
-from kdash_app.resources import resource_actions
-from kdash_app.resources import node_views
-from kdash_app.resources import namespace_views
+from kuba_dm_app.resources import resource_views as rv
+from kuba_dm_app.config import profiles
+from kuba_dm_app.monitoring import prometheus as monitoring
+from kuba_dm_app.resources import event_views
+from kuba_dm_app.resources import resource_detail
+from kuba_dm_app.resources import resource_actions
+from kuba_dm_app.resources import node_views
+from kuba_dm_app.resources import namespace_views
 BASE = Path(__file__).resolve().parents[2]
 RESOURCES = ('cpu', 'memory', 'ephemeral-storage')
 WORKLOAD_KINDS = ('pods', 'deployments', 'replicasets', 'statefulsets')
@@ -592,7 +592,7 @@ def layout(data, view='1', width=120, offset=0, height=None, content=None, workl
     selected = selected or ('1' if view == '2' else view)
     title = rv.menu_group(view) + ' / ' + dict(rv.MENUS)['1' if view == '2' else view]
     header = box([
-        'KDASH  /  KUBERNETES  /  ' + ('DEMO PREVIEW' if data.get('demo') else 'OPERATIONS'),
+        'KUBA-DM  /  KUBERNETES  /  ' + ('DEMO PREVIEW' if data.get('demo') else 'OPERATIONS'),
         'Profile: %s | Cluster: %s | Conf: %s' % (data.get('alias', data['cluster']), data['cluster'], Path(data['config']).name if data.get('config') else '-'),
         'API: %s' % data['server'],
         'Nodes API: %s | Snapshot: %s | Errors: %s' % ('OK' if data['nodes'] is not None else 'UNAVAILABLE', data['stamp'], len(data['errors']) + len(rv.field(data, 'resource_errors', {})) + len(rv.field(data, 'catalog_errors', [])))], width)
@@ -866,7 +866,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
             if draw_key != last_draw:
                 stdscr.erase()
                 if h < 18 or w < 60:
-                    lines = ['KDASH | Resize terminal to at least 60x18', '[q] Quit']
+                    lines = ['KUBA-DM | Resize terminal to at least 60x18', '[q] Quit']
                     visible = max(1, h - 1)
                 elif data:
                     inner = w - 1 - (25 if w - 1 >= 85 else 0) - 4
@@ -890,7 +890,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                         filters=active_filters, category_tab=category_tab, api_resource=api_resource,
                         catalog_query=catalog_query, catalog_index=catalog_index, nav_group=nav_group, monitoring_tab=monitoring_tab)
                 else:
-                    lines, visible = ['KDASH | Connecting...', '[q] Quit | Fetching cluster data...'], max(1, h - 1)
+                    lines, visible = ['KUBA-DM | Connecting...', '[q] Quit | Fetching cluster data...'], max(1, h - 1)
                 for y, line in enumerate(lines[:max(0, h - 1)]):
                     try:
                         stdscr.addnstr(y, 0, line, max(0, w - 1))
@@ -1187,7 +1187,7 @@ def identity(client, config, requested_context):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(prog='kuba-dm', description=__doc__)
     parser.add_argument('--demo', action='store_true', help='Synthetic data; no cluster calls')
     parser.add_argument('--once', action='store_true', help='Print one snapshot without curses')
     parser.add_argument('--config', type=Path, help='Explicit kubeconfig path')
@@ -1219,7 +1219,7 @@ def main():
             elif store.items:
                 selected_profile = store.preferred()
             elif args.once:
-                raise ValueError('No profiles. Run ./kdash to register a kubeconfig.')
+                raise ValueError('No profiles. Run ./kuba-dm to register a kubeconfig.')
             else:
                 selected_profile = profiles.manage(store, None, client_factory, args.timeout)
                 if selected_profile is None:
@@ -1251,7 +1251,7 @@ def main():
                     if args.once:
                         raise
                     profiles.clear()
-                    print('KDASH: ' + clean(exc))
+                    print('KUBA-DM: ' + clean(exc))
                     input('Enter to manage profiles: ')
                     store = store or profiles.Store(BASE)
                     selected_profile = profiles.manage(store, selected_profile, client_factory, args.timeout)
@@ -1284,7 +1284,7 @@ def main():
     except (KeyboardInterrupt, EOFError):
         return 0
     except (ValueError, OSError, curses.error) as exc:
-        print('KDASH: ' + clean(exc), file=sys.stderr)
+        print('KUBA-DM: ' + clean(exc), file=sys.stderr)
         return 1
 
 

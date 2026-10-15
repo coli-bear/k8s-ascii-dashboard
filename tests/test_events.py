@@ -3,10 +3,10 @@ import unittest
 from concurrent.futures import Future
 from unittest.mock import patch
 
-from kdash_app.resources import event_views as ev
-from kdash_app.ui import dashboard as kdash
+from kuba_dm_app.resources import event_views as ev
+from kuba_dm_app.ui import dashboard as kuba_dm
 def data_set(count=35):
-    data = kdash.demo()
+    data = kuba_dm.demo()
     data['events'] = [dict(metadata={'uid': str(i), 'namespace': 'example', 'name': 'event-' + str(i)}, type='Warning', reason='FailedScheduling',
                            involvedObject={'kind': 'Pod', 'name': 'very-long-pod-' + str(i), 'namespace': 'example'},
                            lastTimestamp='2026-10-14T12:00:%02dZ' % i, count=i+1,
@@ -23,12 +23,12 @@ class EventTests(unittest.TestCase):
         for view in ('4', '5'):
             rows = ev.records(data, view)
             for width in (36, 60, 84, 109, 110, 150, 240):
-                header, body = ev.table(data, view, width, kdash.clean)
+                header, body = ev.table(data, view, width, kuba_dm.clean)
                 self.assertEqual(len(body), 2 * len(rows))
                 self.assertTrue(all(len(line) == width for line in header + body))
                 self.assertIn('...', '\n'.join(body))
             data['event_state'] = {'index': 0, 'detail': copy.deepcopy(rows[0])}
-            lines = ev.content(data, view, 45, kdash.clean)
+            lines = ev.content(data, view, 45, kuba_dm.clean)
             self.assertTrue(all(len(line) <= 45 for line in lines))
             joined = ' '.join(lines)
             self.assertIn('MESSAGE', joined)
@@ -61,22 +61,22 @@ class EventTests(unittest.TestCase):
 
     def test_empty_unavailable_nullable_events_and_series_timestamp(self):
         data = data_set(0)
-        self.assertIn('No retained', ev.content(data, '4', 60, kdash.clean)[0])
+        self.assertIn('No retained', ev.content(data, '4', 60, kuba_dm.clean)[0])
         data['events'] = None
-        self.assertIn('unavailable', ev.content(data, '4', 60, kdash.clean)[0])
-        self.assertIn('N/A', ev.header(data, '4', 60, kdash.clean)[0])
+        self.assertIn('unavailable', ev.content(data, '4', 60, kuba_dm.clean)[0])
+        self.assertIn('N/A', ev.header(data, '4', 60, kuba_dm.clean)[0])
         data['events'] = [None, {'type': 'Normal'}, {'type': 'Warning', 'metadata': None, 'involvedObject': None, 'message': None, 'series': {'lastObservedTime': '2026-10-14T12:00:00Z', 'count': 9}}]
         row = ev.records(data, '4')[0]
         self.assertEqual(row['count'], 9)
         self.assertEqual(row['stamp'], '2026-10-14T12:00:00Z')
-        ev.table(data, '4', 36, kdash.clean)
+        ev.table(data, '4', 36, kuba_dm.clean)
 
     def test_selected_row_visible_after_page_and_resize(self):
         data = data_set()
         data['event_state'] = {'index': 30, 'detail': None}
         for width in (60, 100, 160):
             for height in (18, 25, 40):
-                lines, _, visible, offset = kdash.layout(data, '4', width, height=height, focus='content')
+                lines, _, visible, offset = kuba_dm.layout(data, '4', width, height=height, focus='content')
                 self.assertTrue(all(len(line) == width for line in lines))
                 self.assertIn('| > ', '\n'.join(lines))
                 self.assertLessEqual(offset, 60)
@@ -88,8 +88,8 @@ class EventTests(unittest.TestCase):
             def submit(self, fn, *args):
                 f=Future();f.set_result(fn(*args));return f
             def shutdown(self, **kwargs): pass
-        keys = iter([ord('4'), 10, kdash.curses.KEY_DOWN, 10, ord('d'), 27, -1,
-                     ord('d'), 10, 27, -1, 27, -1, ord('5'), 10, kdash.curses.KEY_DOWN, 10, 27, -1, ord('q')])
+        keys = iter([ord('4'), 10, kuba_dm.curses.KEY_DOWN, 10, ord('d'), 27, -1,
+                     ord('d'), 10, 27, -1, 27, -1, ord('5'), 10, kuba_dm.curses.KEY_DOWN, 10, 27, -1, ord('q')])
         class Terminal:
             def timeout(self, value): pass
             def getmaxyx(self): return 35, 150
@@ -98,12 +98,12 @@ class EventTests(unittest.TestCase):
             def refresh(self): pass
             def getch(self): return next(keys)
         snapshots=[]
-        original=kdash.layout
+        original=kuba_dm.layout
         def layout(data, *args, **kwargs):
             if args[0] in ('4','5'): snapshots.append((args[0], kwargs['focus'], copy.deepcopy(data.get('event_state'))))
             return original(data,*args,**kwargs)
-        with patch('kdash_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor',Pool), patch('kdash_app.ui.dashboard.layout',layout), patch('kdash_app.ui.dashboard.curses.curs_set'), patch('kdash_app.ui.dashboard.curses.set_escdelay',create=True), patch('kdash_app.ui.dashboard.curses.mousemask'), patch('kdash_app.ui.dashboard.curses.mouseinterval'), patch('kdash_app.ui.dashboard.sys.stdout'):
-            self.assertEqual(kdash.screen(Terminal(),data_set,30),'quit')
+        with patch('kuba_dm_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor',Pool), patch('kuba_dm_app.ui.dashboard.layout',layout), patch('kuba_dm_app.ui.dashboard.curses.curs_set'), patch('kuba_dm_app.ui.dashboard.curses.set_escdelay',create=True), patch('kuba_dm_app.ui.dashboard.curses.mousemask'), patch('kuba_dm_app.ui.dashboard.curses.mouseinterval'), patch('kuba_dm_app.ui.dashboard.sys.stdout'):
+            self.assertEqual(kuba_dm.screen(Terminal(),data_set,30),'quit')
         self.assertTrue(any(v=='4' and s['index']==1 and s['detail'] for v,f,s in snapshots))
         self.assertTrue(any(v=='4' and s['index']==1 and not s['detail'] and f=='content' for v,f,s in snapshots))
         self.assertTrue(any(v=='4' and s['index']>1 and s['detail'] for v,f,s in snapshots))

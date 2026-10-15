@@ -2,9 +2,9 @@ import json
 import unittest
 from concurrent.futures import Future
 from unittest.mock import patch
-from kdash_app.ui import dashboard as kdash
-from kdash_app.monitoring import prometheus as m
-from kdash_app.config import profiles
+from kuba_dm_app.ui import dashboard as kuba_dm
+from kuba_dm_app.monitoring import prometheus as m
+from kuba_dm_app.config import profiles
 class MonitoringTests(unittest.TestCase):
     def test_filter_literals_and_tab_scope(self):
         filters = m.parse_filter('ns=prod name="a.*|b" cluster=west', 3)
@@ -51,14 +51,14 @@ class MonitoringTests(unittest.TestCase):
             elif expr.startswith('max(timestamp'): result = [{'value': [1000, '950']}]
             else: result = [{'metric': {'namespace': 'prod'}, 'values': [[1000, '0']]}]
             return {'data': {'result': result}}
-        with patch('kdash_app.monitoring.prometheus.time.time', return_value=1000):
+        with patch('kuba_dm_app.monitoring.prometheus.time.time', return_value=1000):
             snap = m.Reader({}, query=query)(2, {}, 300)
         self.assertEqual(snap['cards'][0]['age'], 50)
         self.assertEqual(snap['cards'][1]['error'], 'query denied')
         self.assertTrue(any(kw == dict(start=700, end=1000, step=5) for _, kw in calls))
 
     def test_http_range_parameters_and_empty_matrix(self):
-        with patch('kdash_app.config.profiles.urllib.request.build_opener') as build:
+        with patch('kuba_dm_app.config.profiles.urllib.request.build_opener') as build:
             build.return_value.open.return_value.__enter__.return_value.read.return_value = b'{"status":"success","data":{"resultType":"matrix","result":[]}}'
             result = profiles.prometheus_query({'endpoint': 'https://prom.invalid/prefix'}, 'sum(up)', start=0, end=60, step=5)
             self.assertEqual(result['data']['result'], [])
@@ -69,11 +69,11 @@ class MonitoringTests(unittest.TestCase):
     def test_ascii_layout_all_sizes_and_stale_status(self):
         card = dict(key='cpu', title='CPU used', unit='cores', source='cpu', series=[{'metric': {'instance': 'n:9100'}, 'values': [[1000, '2']]}], error='', warnings=[], age=200)
         snap = dict(start=700, end=1000, step=5, cards=[card], notes=[], errors=[], names={})
-        data = dict(kdash.demo(), prometheus={'endpoint': 'http://test'}, monitoring=snap)
-        self.assertIn('STALE', '\n'.join(m.render(data, 0, 140, kdash.ascii_table)))
+        data = dict(kuba_dm.demo(), prometheus={'endpoint': 'http://test'}, monitoring=snap)
+        self.assertIn('STALE', '\n'.join(m.render(data, 0, 140, kuba_dm.ascii_table)))
         for width in (40, 60, 84, 100, 140, 240):
             for height in (18, 35, 60):
-                lines, *_ = kdash.layout(data, 'm', width, height=height)
+                lines, *_ = kuba_dm.layout(data, 'm', width, height=height)
                 self.assertLessEqual(len(lines), height)
                 self.assertTrue(all(len(line) == width and line.isascii() for line in lines))
 
@@ -90,7 +90,7 @@ class MonitoringTests(unittest.TestCase):
                     return pending if len(calls) == 1 else Future()
                 f = Future(); f.set_result(fn(*args)); return f
             def shutdown(self, **kwargs): pass
-        keys = iter([ord('m'), 10, kdash.curses.KEY_RIGHT, -1, ord('p'), ord('t'), ord('q')])
+        keys = iter([ord('m'), 10, kuba_dm.curses.KEY_RIGHT, -1, ord('p'), ord('t'), ord('q')])
         class Terminal:
             def timeout(self, v): pass
             def getmaxyx(self): return 40, 160
@@ -101,12 +101,12 @@ class MonitoringTests(unittest.TestCase):
                 key = next(keys)
                 if key == -1: pending.set_result(marker)
                 return key
-        real_layout = kdash.layout
+        real_layout = kuba_dm.layout
         def layout(data, *args, **kwargs):
             if args[0] == 'm': frames.append((kwargs['monitoring_tab'], data.get('monitoring'), dict(data['monitor_state'])))
             return real_layout(data, *args, **kwargs)
-        with patch('kdash_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor', Pool), patch('kdash_app.ui.dashboard.layout', layout), patch('kdash_app.ui.dashboard.curses.curs_set'), patch('kdash_app.ui.dashboard.curses.set_escdelay', create=True), patch('kdash_app.ui.dashboard.curses.mousemask'), patch('kdash_app.ui.dashboard.curses.mouseinterval'), patch('kdash_app.ui.dashboard.sys.stdout'):
-            kdash.screen(Terminal(), lambda: dict(kdash.demo(), prometheus={'endpoint': 'http://test'}), 30, monitoring_loader=load_metrics)
+        with patch('kuba_dm_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor', Pool), patch('kuba_dm_app.ui.dashboard.layout', layout), patch('kuba_dm_app.ui.dashboard.curses.curs_set'), patch('kuba_dm_app.ui.dashboard.curses.set_escdelay', create=True), patch('kuba_dm_app.ui.dashboard.curses.mousemask'), patch('kuba_dm_app.ui.dashboard.curses.mouseinterval'), patch('kuba_dm_app.ui.dashboard.sys.stdout'):
+            kuba_dm.screen(Terminal(), lambda: dict(kuba_dm.demo(), prometheus={'endpoint': 'http://test'}), 30, monitoring_loader=load_metrics)
         self.assertEqual([c[0] for c in calls], [0, 1])
         self.assertTrue(all(snap is None for tab, snap, _ in frames if tab == 1))
         self.assertTrue(any(state['paused'] for _, _, state in frames))

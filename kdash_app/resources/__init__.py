@@ -1,1 +1,0 @@
-"""KDASH resources package."""

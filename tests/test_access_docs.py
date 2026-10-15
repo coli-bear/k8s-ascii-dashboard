@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from kdash_app.config import profiles
+from kuba_dm_app.config import profiles
 from tests.test_profiles import CONFIG
 
 BASE = Path(__file__).resolve().parents[1]
@@ -26,7 +26,7 @@ class AccessDocTests(unittest.TestCase):
             root = Path(directory)
             (root / '.gitignore').write_text((BASE / '.gitignore').read_text())
             subprocess.run(['git', 'init', '-q', directory], check=True, capture_output=True)
-            for path in ('.kube/my-cluster.conf', '.kube/kdash-operator.conf', '.kdash/profiles.json', 'kdash-operator.conf'):
+            for path in ('.kube/my-cluster.conf', '.kube/kuba-dm-operator.conf', '.kuba-dm/profiles.json', 'kuba-dm-operator.conf'):
                 with self.subTest(path=path):
                     result = subprocess.run(['git', '-C', directory, 'check-ignore', '-q', path])
                     self.assertEqual(result.returncode, 0)
@@ -58,7 +58,7 @@ class AccessDocTests(unittest.TestCase):
                             data = 'apiVersion: kubeadm.k8s.io/v1beta4\nkind: ClusterConfiguration\n'
                         return Mock(stdout=data, returncode=0)
 
-                    environment = {'KDASH_NEW_CONFIG': str(output), 'KDASH_ISSUER_CONFIG': '/synthetic/issuer.conf'}
+                    environment = {'KUBA_DM_NEW_CONFIG': str(output), 'KUBA_DM_ISSUER_CONFIG': '/synthetic/issuer.conf'}
                     with patch.dict(os.environ, environment), patch('subprocess.run', side_effect=run), patch('builtins.print'):
                         if scenario == 'success':
                             exec(compile(script, '<documentation-fixture>', 'exec'), {})
@@ -73,7 +73,7 @@ class AccessDocTests(unittest.TestCase):
                         self.assertEqual(output.read_text(), 'VALID_EXISTING_FIXTURE')
                     else:
                         self.assertFalse(output.exists())
-                    self.assertEqual(list(parent.glob('kdash-issuance-*')), [])
+                    self.assertEqual(list(parent.glob('kuba-dm-issuance-*')), [])
 
     def test_github_relative_document_links(self):
         readme = (BASE / 'README.md').read_text()

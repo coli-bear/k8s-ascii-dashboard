@@ -2,7 +2,7 @@
 from collections import defaultdict
 import textwrap
 
-from kdash_app.resources import resource_views as rv
+from kuba_dm_app.resources import resource_views as rv
 MAX_NODES = 160
 MAX_EDGES = 400
 MAX_LINES = 2500

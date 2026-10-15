@@ -4,10 +4,10 @@ import unittest
 from concurrent.futures import Future
 from unittest.mock import Mock, patch
 
-from kdash_app.ui import dashboard as kdash
-from kdash_app.resources import namespace_views as nv
-from kdash_app.resources import resource_detail as rd
-from kdash_app.resources import resource_views as rv
+from kuba_dm_app.ui import dashboard as kuba_dm
+from kuba_dm_app.resources import namespace_views as nv
+from kuba_dm_app.resources import resource_detail as rd
+from kuba_dm_app.resources import resource_views as rv
 class NamespaceTests(unittest.TestCase):
     def client(self, denied=(), discovery_error=None):
         snapshot = nv.demo()
@@ -77,7 +77,7 @@ class NamespaceTests(unittest.TestCase):
         self.assertIn('changed identity', nv.load(c, {'name': 'demo'})[1])
 
     def test_list_filters_partial_data_counts_and_all_widths(self):
-        data = kdash.demo()
+        data = kuba_dm.demo()
         data['extras'] = {'namespaces': rv.demo_resource('namespaces', False)[0]}
         data['resource_state'] = {'index': 1}
         self.assertEqual([obj['metadata']['name'] for obj in nv.matches(data, {'status': 'terminating'})], ['retiring'])
@@ -85,13 +85,13 @@ class NamespaceTests(unittest.TestCase):
         self.assertEqual(nv.matches(data, {'name': 'demo', 'ns': 'default'}), [])
         for width in (40, 60, 84, 100, 160, 220):
             for height in (18, 30, 55):
-                lines, *_ = kdash.layout(data, 'Z', width, height=height, focus='content')
+                lines, *_ = kuba_dm.layout(data, 'Z', width, height=height, focus='content')
                 self.assertLessEqual(len(lines), height)
                 self.assertTrue(all(len(line) == width and line.isascii() for line in lines))
                 self.assertIn('| > ', '\n'.join(lines))
         data['extras']['namespaces'] = None
         data['resource_errors'] = {'namespaces': 'Forbidden fixture'}
-        self.assertIn('Forbidden', ' '.join(nv.list_lines(data, 100, {}, kdash.ascii_table)))
+        self.assertIn('Forbidden', ' '.join(nv.list_lines(data, 100, {}, kuba_dm.ascii_table)))
 
     def test_namespace_tabs_share_snapshot_and_refresh_invalidates_all_four(self):
         item = dict(resource='namespaces', name='demo', namespaced=False, namespace=None, read_only=True)
@@ -123,10 +123,10 @@ class NamespaceTests(unittest.TestCase):
         snapshot['objects']['limitranges'] = [{'metadata': {'name': 'limits'}, 'spec': {'limits': [{'type': 'Container', 'min': {'cpu': '100m'}, 'max': {'memory': '1Gi'}}]}}]
         for mode in nv.MODES:
             for width in (40, 60, 84, 100, 160, 220):
-                lines = nv.render(snapshot, mode, width, kdash.ascii_table, kdash.clean)
+                lines = nv.render(snapshot, mode, width, kuba_dm.ascii_table, kuba_dm.clean)
                 self.assertTrue(all(len(line) <= width and line.isascii() for line in lines))
                 self.assertIn('Forbidden', '\n'.join(lines))
-        overview = '\n'.join(nv.render(snapshot, 'overview', 140, kdash.ascii_table, kdash.clean))
+        overview = '\n'.join(nv.render(snapshot, 'overview', 140, kuba_dm.ascii_table, kuba_dm.clean))
         self.assertIn('jobs.batch', overview)
         self.assertIn('N/A', overview)
         self.assertIn('requests.cpu', overview)
@@ -234,7 +234,7 @@ class NamespaceTests(unittest.TestCase):
                 return future
             def shutdown(self, **kwargs): pass
         keys = iter([ord('Z'), 10, -1, ord('/'), *map(ord, 'name=demo'), 10, 10, -1,
-                     kdash.curses.KEY_RIGHT, -1, kdash.curses.KEY_RIGHT, -1, kdash.curses.KEY_RIGHT, -1,
+                     kuba_dm.curses.KEY_RIGHT, -1, kuba_dm.curses.KEY_RIGHT, -1, kuba_dm.curses.KEY_RIGHT, -1,
                      ord('r'), -1, ord('a'), ord('e'), ord('!'), 27, -1, 27, -1, ord('q')])
         class Terminal:
             def timeout(self, value): pass
@@ -245,15 +245,15 @@ class NamespaceTests(unittest.TestCase):
             def getch(self): return next(keys)
         loads, frames = [], []
         action = Mock()
-        layout = kdash.layout
+        layout = kuba_dm.layout
         def detail(item, mode):
             loads.append((item, mode))
             return rd.demo(item, mode)
         def record(data, *args, **kwargs):
             frames.append((args[0], kwargs['focus'], copy.deepcopy(data.get('resource_detail'))))
             return layout(data, *args, **kwargs)
-        with patch('kdash_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor', Pool), patch('kdash_app.ui.dashboard.layout', record), patch('kdash_app.ui.dashboard.curses.curs_set'), patch('kdash_app.ui.dashboard.curses.set_escdelay', create=True), patch('kdash_app.ui.dashboard.curses.mousemask'), patch('kdash_app.ui.dashboard.curses.mouseinterval'), patch('kdash_app.ui.dashboard.sys.stdout'):
-            self.assertEqual(kdash.screen(Terminal(), kdash.demo, 30, resource_loader=rv.demo_resource, detail_loader=detail, action_handler=action), 'quit')
+        with patch('kuba_dm_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor', Pool), patch('kuba_dm_app.ui.dashboard.layout', record), patch('kuba_dm_app.ui.dashboard.curses.curs_set'), patch('kuba_dm_app.ui.dashboard.curses.set_escdelay', create=True), patch('kuba_dm_app.ui.dashboard.curses.mousemask'), patch('kuba_dm_app.ui.dashboard.curses.mouseinterval'), patch('kuba_dm_app.ui.dashboard.sys.stdout'):
+            self.assertEqual(kuba_dm.screen(Terminal(), kuba_dm.demo, 30, resource_loader=rv.demo_resource, detail_loader=detail, action_handler=action), 'quit')
         self.assertEqual([mode for _, mode in loads], ['overview', 'topology'])
         self.assertTrue(all(item['name'] == 'demo' and item['read_only'] for item, _ in loads))
         self.assertEqual(frames[-1][:2], ('Z', 'nav'))
