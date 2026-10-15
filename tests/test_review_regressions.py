@@ -169,7 +169,7 @@ class YamlSnapshotTests(unittest.TestCase):
                     self.assertEqual(submitted, validated)
                     self.assertEqual(len(submitted), 1)
                     if not new:
-                        self.assertEqual(diffed, validated)
+                        self.assertEqual(diffed, [])
                     self.assertNotEqual(submitted[0], replacement)
 
     def test_client_json_call_forwards_stdin(self):

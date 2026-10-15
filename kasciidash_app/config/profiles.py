@@ -1,5 +1,6 @@
 """Local cluster profiles and read-only Prometheus connection setup."""
 import base64
+import contextlib
 import codecs
 import datetime as dt
 import fcntl
@@ -140,35 +141,71 @@ def prometheus_config(value):
 class Store:
     def __init__(self, base):
         self.base = Path(base).resolve()
-        self.path = self.base / '.kasciidash' / 'kasciidash_app.config.profiles.json'
-        self.original = self.path.read_text(encoding='utf-8') if self.path.exists() else None
-        if self.original is None:
-            self.data = {'version': 1, 'profiles': [
-                {'id': uuid.uuid4().hex, 'alias': path.stem,
-                 'kubeconfig': str(path.relative_to(self.base)), 'context': None, 'prometheus': {}}
-                for path in sorted((self.base / '.kube').glob('*.conf')) if path.is_file()]}
-            self.save()
-        else:
-            try:
-                self.data = json.loads(self.original)
-                if not isinstance(self.data, dict) or self.data.get('version') != 1 or not isinstance(self.data.get('profiles'), list):
-                    raise ValueError('Unsupported profile registry format.')
-                ids, aliases = set(), set()
-                for item in self.items:
-                    if not isinstance(item, dict):
-                        raise ValueError('Invalid profile entry.')
-                    for key in ('id', 'alias', 'kubeconfig'):
-                        if not isinstance(item.get(key), str) or not item[key].strip():
-                            raise ValueError('Missing profile ' + key)
-                    if item['id'] in ids or item['alias'].casefold() in aliases:
-                        raise ValueError('Duplicate profile ID or alias.')
-                    ids.add(item['id']); aliases.add(item['alias'].casefold())
-                    if item.get('context') is not None and not isinstance(item['context'], str):
-                        raise ValueError('Invalid context.')
-                    self.config_path(item)
-                    item['prometheus'] = prometheus_config(item.get('prometheus', {}))
-            except (ValueError, TypeError) as exc:
-                raise ValueError('Cannot load profiles.json; existing file was preserved: ' + str(exc)) from exc
+        self.path = self.base / '.kasciidash' / 'profiles.json'
+        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(self.path.parent, 0o700)
+        # Lock the canonical name before discovering legacy files. Old app
+        # processes use their own filename lock, which we also acquire.
+        with contextlib.ExitStack() as stack:
+            self._lock(stack, self.path)
+            legacy = sorted(self.path.parent.glob('*_app.config.profiles.json'))
+            for path in legacy:
+                self._lock(stack, path)
+            sources = [p for p in [self.path] + legacy if p.exists()]
+            values = [(p, p.read_text(encoding='utf-8')) for p in sources]
+            decoded = [self._decode(text) for _, text in values]
+            if decoded and any(data != decoded[0] for data in decoded[1:]):
+                raise ValueError('Conflicting profile registries. Existing files preserved; reconcile profiles.json and legacy registries before restarting.')
+            if decoded:
+                self.data = decoded[0]
+                if not self.path.exists():
+                    atomic_write(self.path, values[0][1])
+                os.chmod(self.path, 0o600)
+                if legacy:
+                    backup = self.path.parent / 'registry-backups'
+                    backup.mkdir(exist_ok=True, mode=0o700)
+                    os.chmod(backup, 0o700)
+                    for path in legacy:
+                        os.chmod(path, 0o600)
+                        path.rename(backup / (uuid.uuid4().hex + '-' + path.name))
+            else:
+                self.data = {'version': 1, 'profiles': [
+                    {'id': uuid.uuid4().hex, 'alias': path.stem,
+                     'kubeconfig': str(path.relative_to(self.base)), 'context': None, 'prometheus': {}}
+                    for path in sorted((self.base / '.kube').glob('*.conf')) if path.is_file()]}
+                atomic_write(self.path, json.dumps(self.data, ensure_ascii=False, indent=2) + '\n')
+            self.original = self.path.read_text(encoding='utf-8')
+
+    @staticmethod
+    def _lock(stack, path):
+        lock = stack.enter_context(open(path.with_suffix('.lock'), 'a', encoding='utf-8'))
+        os.fchmod(lock.fileno(), 0o600)
+        fcntl.flock(lock, fcntl.LOCK_EX)
+
+    def _decode(self, text):
+        try:
+            data = json.loads(text)
+            if not isinstance(data, dict) or data.get('version') != 1 or not isinstance(data.get('profiles'), list):
+                raise ValueError('Unsupported profile registry format.')
+            ids, aliases = set(), set()
+            for item in data['profiles']:
+                if not isinstance(item, dict):
+                    raise ValueError('Invalid profile entry.')
+                for key in ('id', 'alias', 'kubeconfig'):
+                    if not isinstance(item.get(key), str) or not item[key].strip():
+                        raise ValueError('Missing profile ' + key)
+                if item['id'] in ids or item['alias'].casefold() in aliases:
+                    raise ValueError('Duplicate profile ID or alias.')
+                ids.add(item['id']); aliases.add(item['alias'].casefold())
+                if item.get('context') is not None and not isinstance(item['context'], str):
+                    raise ValueError('Invalid context.')
+                self.config_path(item)
+                item['prometheus'] = prometheus_config(item.get('prometheus', {}))
+            if data.get('last_profile_id') is not None and not isinstance(data['last_profile_id'], str):
+                raise ValueError('Invalid last_profile_id.')
+            return data
+        except (ValueError, TypeError) as exc:
+            raise ValueError('Cannot load profiles.json; existing file was preserved: ' + str(exc)) from exc
 
     @property
     def items(self):

@@ -62,7 +62,7 @@ class ActionTests(unittest.TestCase):
         original=obj();original['metadata']['annotations']={'keep':'yes','kubectl.kubernetes.io/last-applied-configuration':'old'}
         edited=a.editable_object(original)
         self.assertNotIn('status',edited)
-        self.assertNotIn('uid',edited['metadata'])
+        self.assertEqual(edited['metadata']['uid'],original['metadata']['uid'])
         self.assertNotIn('managedFields',edited['metadata'])
         self.assertEqual(edited['metadata']['resourceVersion'],'5')
         self.assertEqual(edited['metadata']['annotations'],{'keep':'yes'})
@@ -88,19 +88,16 @@ class ActionTests(unittest.TestCase):
                     self.assertIn('prod',c.text.call_args.args)
                 else: c.text.assert_not_called()
 
-    def test_edit_validation_identity_and_diff_failure_block_apply(self):
-        for failure in ('validation','identity','diff','cancel','success'):
+    def test_edit_validation_identity_cancel_and_conditional_replace(self):
+        for failure in ('validation','identity','cancel','success'):
             c=client();preview=obj()
             if failure=='identity': preview['metadata']['name']='another-object'
-            c.call.side_effect=[(obj(),None),(preview,'Forbidden' if failure=='validation' else None)]
+            c.call.side_effect=[(obj(),None),(obj(),None),(preview,'Forbidden' if failure=='validation' else None)]
             c.text.return_value=('apiVersion: apps/v1\nkind: Deployment\n',None)
-            if failure=='diff': c.run.return_value=Mock(returncode=2,stdout='',stderr='diff failed')
             prompts=['',''] if failure in ('validation','identity','cancel') else ['','apply']
             with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{'EDITOR':'editor','VISUAL':''}),patch('kasciidash_app.resources.resource_actions.subprocess.run',return_value=Mock(returncode=0)),patch('kasciidash_app.resources.resource_actions.profiles.prompt',side_effect=prompts),patch('builtins.print'):
-                if failure=='diff':
-                    with self.assertRaises(ValueError): a.edit_yaml(c,Path(directory),selected())
-                else: a.edit_yaml(c,Path(directory),selected())
-                applies=[call for call in c.text.call_args_list if call.args[0]=='apply']
+                a.edit_yaml(c,Path(directory),selected())
+                applies=[call for call in c.text.call_args_list if call.args[0]=='replace']
                 self.assertEqual(len(applies),int(failure=='success'))
                 self.assertFalse(list((Path(directory)/'.kasciidash').rglob('*.yaml')))
 

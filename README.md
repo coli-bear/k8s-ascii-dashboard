@@ -324,18 +324,18 @@ Pod, Deployment, ReplicaSet, StatefulSet, DaemonSet, Service, ConfigMap, Secret,
 
 편집기는 `$VISUAL`, `$EDITOR`, `vi` 순으로 사용합니다. 예: `EDITOR='code --wait' ./kasciidash`. 편집기가 파일 저장까지 기다리도록 설정해야 합니다. vi에서는 `i`로 수정하고 `Esc` 후 `:wq`로 저장·종료합니다.
 
-신규 YAML 초안만 `.kasciidash/<프로필 별명>/<리소스>/<이름>.yaml`에 저장합니다. `<리소스>`는 선택한 API 리소스명(`pods`, `deployments.apps` 등)입니다. 파일은 권한 600, 생성 디렉터리는 700입니다.
+신규 YAML 초안만 `.kasciidash/<프로필 별명>/<리소스>/<이름>.yaml`에 저장합니다. `<리소스>`는 API group과 plural로 정규화한 이름(`pods`, `deployments.apps` 등)입니다. Workloads의 `deployments`와 API Resources의 `deployments.apps`는 같은 초안을 사용합니다. 파일은 권한 600, 생성 디렉터리는 700입니다.
 
 - `n`: 새 YAML 작성. 같은 이름의 초안이 있으면 덮어쓰지 않고 `D`로 불러오도록 안내합니다.
 - `D`(Shift+d): 현재 프로필·리소스의 저장된 신규 초안 목록을 열고 번호로 선택합니다. 편집 → 미리보기 → 서버 dry-run → `create` 확인을 거쳐 배포합니다. YAML의 namespace를 사용하며 현재 목록에서 선택한 객체의 namespace로 덮어쓰지 않습니다.
-- 신규 배포 성공 시 해당 초안을 삭제합니다. 취소·검증 실패·배포 실패 시에는 남겨 두므로 나중에 `D`로 이어서 작업할 수 있습니다.
-- 기존 객체의 `e` 편집은 OS 임시 디렉터리를 사용하고 성공·취소·오류 시 정리합니다. 프로젝트에 편집 초안이나 배포 이력을 보관하지 않습니다. 이후 조회는 클러스터에서 다시 가져옵니다.
+- 신규 배포 성공 시 초안 경로를 원자적으로 확보한 후 승인한 파일만 정리합니다. 정리 중 같은 경로에 새 파일이 생성되면 보존하며, 로컬 정리가 실패해도 배포 성공과 구분해 안내합니다. 취소·검증 실패·배포 실패 시에는 남겨 두므로 나중에 `D`로 이어서 작업할 수 있습니다.
+- 정리하지 못한 `.draft-claim-*/`의 복구 파일도 `D` 목록에서 선택할 수 있습니다. 기존 객체의 `e` 편집은 OS 임시 디렉터리를 사용하고 성공·취소·오류 시 정리합니다. 프로젝트에 편집 초안이나 배포 이력을 보관하지 않습니다. 이후 조회는 클러스터에서 다시 가져옵니다.
 
 미리보기·서버 dry-run·diff·제출은 같은 YAML 스냅샷을 사용합니다. 승인 대기 중 외부에서 신규 초안을 변경했다면, 승인한 스냅샷만 제출하고 더 최신 초안은 삭제하지 않습니다. 이미 같은 이름의 객체가 존재할 때 신규 초안을 강제로 덮어쓰지 않도록 신규 배포는 `create`를 사용합니다. 기존 객체 수정은 목록에서 해당 객체를 선택하고 `e`로 진행하세요.
 
-기존 `<리소스>/draft/<hash>.yaml` 신규 초안도 `D` 목록에 표시합니다. 선택하면 객체명을 확인해 새 경로로 옮긴 뒤 이어서 편집합니다. 충돌하는 이름이 있으면 덮어쓰지 않습니다. 과거의 `.kasciidash/drafts/` 공용 초안과 편집·배포 이력은 프로필을 확정할 수 없어 자동 이동·삭제하지 않습니다.
+기존 축약 리소스 폴더(`deployments` 등)와 `<리소스>/draft/<hash>.yaml` 신규 초안도 `D` 목록에 표시합니다. 선택하면 객체명을 확인해 새 경로로 옮긴 뒤 이어서 편집합니다. 충돌하는 이름이 있으면 덮어쓰지 않습니다. 과거의 `.kasciidash/drafts/` 공용 초안과 편집·배포 이력은 프로필을 확정할 수 없어 자동 이동·삭제하지 않습니다.
 
-별명의 `/` 등 경로 구분 문자는 퍼센트 인코딩하며 `--config` 직접 연결은 `unregistered` 별명을 사용합니다. 별명 변경 시 기존 초안은 이전 별명 디렉터리에 남습니다. 요청한 구조에는 namespace가 없으므로 같은 프로필·리소스·이름의 초안은 namespace별로 동시에 저장할 수 없습니다. Secret 신규 초안에는 민감한 값이 포함될 수 있습니다. 기존 객체 편집은 status·managedFields를 제거하고 resourceVersion은 동시 수정 충돌 감지를 위해 유지합니다.
+별명의 `/` 등 경로 구분 문자는 퍼센트 인코딩하며 `--config` 직접 연결은 `unregistered` 별명을 사용합니다. 별명 변경 시 기존 초안은 이전 별명 디렉터리에 남습니다. 요청한 구조에는 namespace가 없으므로 같은 프로필·리소스·이름의 초안은 namespace별로 동시에 저장할 수 없습니다. Secret 신규 초안에는 민감한 값이 포함될 수 있습니다. 기존 객체 편집은 status·managedFields를 제거하고, 선택 시 UID/resourceVersion을 별도로 보존합니다. 에디터에서 해당 필드를 지우면 원래 값을 다시 넣고, 다른 값으로 바꾸면 중단합니다. 보호 값을 포함한 최종 스냅샷을 JSON 형식(YAML로도 유효)으로 미리 보여준 뒤 서버 dry-run과 최종 `kubectl replace`에 그대로 전달합니다. diff는 선택 시 스냅샷과 제출 스냅샷을 로컬에서 비교합니다. 확인 단어는 `apply`를 유지하지만 실제 요청은 조건부 replace이며 `--force`는 사용하지 않습니다. 해당 리소스의 `update` 권한이 필요하며 기존 patch 권한만으로는 부족할 수 있습니다. 삭제한 필드는 전체 갱신에서 제거될 수 있으므로 diff를 확인하세요. 선택 후 객체가 교체되거나 갱신되면 다시 조회해야 합니다. [갱신 충돌 조건](https://kubernetes.io/docs/reference/using-api/api-concepts/#updates-to-existing-resources), [kubectl replace](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_replace/)
 
 저장 후 YAML 전문과 서버 dry-run 결과를 표시합니다. 기존 객체 수정은 diff도 표시하며 이름·namespace·kind·apiVersion 변경을 막습니다. 신규는 `create`, 수정은 `apply`를 직접 입력해야 실제 배포합니다. 신규는 이미 존재하는 객체를 덮어쓰지 않습니다. 미리보기·서버 dry-run·diff·최종 제출은 메모리에 보관한 동일한 YAML 내용을 stdin으로 전달합니다. 승인 대기 중 보관용 초안 파일을 외부에서 바꿔도 제출 내용은 바뀌지 않습니다. 변경한 초안을 반영하려면 `e`로 다시 편집하여 검증·승인을 반복합니다. 검증에 실패하면 `e`로 다시 편집할 수 있습니다.
 
@@ -517,6 +517,8 @@ Service별 관측에는 추가 수집원이 필요합니다. 현재 자동 지�
 참고: [Prometheus 조회 API](https://prometheus.io/docs/prometheus/latest/querying/api/), [cAdvisor 지표](https://github.com/google/cadvisor/blob/master/docs/storage/prometheus.md), [Istio 지표](https://istio.io/latest/docs/reference/config/metrics/).
 
 ## 클러스터 프로필과 Prometheus 설정
+
+레지스트리 경로는 `.kasciidash/profiles.json`입니다. 이전 버전의 `*_app.config.profiles.json` 파일만 있으면 잠금 하에 정규 파일로 이전하며, 기존 ID·별명·접속 설정·Prometheus·마지막 선택을 보존합니다. 이전 원본은 `.kasciidash/registry-backups/`에 권한 600으로 보관합니다. 복수 파일이 서로 다르거나 손상됐다면 자동 재등록·덮어쓰기를 하지 않고 중단합니다. 앱을 모두 종료하고 보호된 사본으로 내용을 비교해 사용할 레지스트리를 결정하세요.
 
 프로필은 `.kasciidash/profiles.json`에 관리합니다. 예시 구조:
 

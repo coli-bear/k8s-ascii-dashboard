@@ -1,5 +1,6 @@
 """Interactive, explicitly confirmed Kubernetes operations outside curses."""
 import copy
+import difflib
 import datetime as dt
 import json
 import os
@@ -8,10 +9,11 @@ import re
 import shlex
 import subprocess
 import tempfile
-from urllib.parse import quote
+import fcntl
 
 from kasciidash_app.config import profiles
 from kasciidash_app.resources import resource_detail as detail
+from kasciidash_app.resources import draft_files
 from kasciidash_app.resources import event_resources
 from kasciidash_app.terminal import exec_session as terminal_exec
 SCALE = {'deployments', 'deployments.apps', 'statefulsets', 'statefulsets.apps', 'replicasets', 'replicasets.apps'}
@@ -214,7 +216,7 @@ def editable_object(obj):
     obj = copy.deepcopy(obj)
     obj.pop('status', None)
     meta = obj.setdefault('metadata', {})
-    for key in ('uid', 'creationTimestamp', 'generation', 'managedFields', 'selfLink', 'deletionTimestamp', 'deletionGracePeriodSeconds'):
+    for key in ('creationTimestamp', 'generation', 'managedFields', 'selfLink', 'deletionTimestamp', 'deletionGracePeriodSeconds'):
         meta.pop(key, None)
     # Keep resourceVersion so a concurrent update can fail instead of being overwritten.
     annotations = meta.get('annotations') or {}
@@ -231,34 +233,21 @@ def object_key(obj):
     return obj.get('apiVersion'), obj.get('kind'), meta.get('namespace'), meta.get('name')
 
 
-def yaml_component(value):
-    # Aliases are user-defined; encode separators without alias collisions.
-    text = str(value or 'unregistered')
-    return quote(text, safe='-_') if text not in ('.', '..') else text.replace('.', '%2E')
-
-
-def yaml_directory(base, profile_alias, resource):
-    root = Path(base) / '.kasciidash'
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    path = root
-    for value in (profile_alias, resource):
-        path = path / yaml_component(value)
-        if path.is_symlink():
-            raise ValueError('YAML storage directory must not be a symbolic link: ' + str(path))
-        path.mkdir(exist_ok=True, mode=0o700)
-        os.chmod(path, 0o700)
-    return path
+yaml_component = draft_files.component
+yaml_directory = draft_files.directory
+cleanup_draft = draft_files.cleanup
 
 
 def saved_drafts(client, base, item, profile_alias='unregistered'):
     directory = yaml_directory(base, profile_alias, item['resource'])
-    paths = sorted(p for pattern in ('*.yaml', 'draft/*.yaml') for p in directory.glob(pattern)
+    paths = sorted(p for folder in draft_files.directories(base, profile_alias, item['resource'])
+                   for pattern in ('*.yaml', 'draft/*.yaml', '.draft-claim-*/**/*.yaml') for p in folder.glob(pattern)
                    if p.is_file() and not p.is_symlink() and not p.parent.is_symlink())
     if not paths:
         print('No saved drafts for this profile and resource. Press n to create one.')
         return
     path = choose('Saved new YAML drafts | ' + safe(profile_alias) + ' / ' + safe(item['resource']),
-                  [(str(p.relative_to(directory)), p) for p in paths])
+                  [(str(p.relative_to(directory.parent)), p) for p in paths])
     if path.parent != directory:
         # Earlier versions stored new drafts under resource/draft/<hash>.yaml.
         payload = path.read_bytes()
@@ -276,8 +265,7 @@ def saved_drafts(client, base, item, profile_alias='unregistered'):
             raise ValueError('A draft with this name already exists; resume ' + target.name + ' first.') from exc
         with os.fdopen(fd, 'wb') as output:
             output.write(payload)
-        if not path.is_symlink() and path.read_bytes() == payload:
-            path.unlink()
+        print(cleanup_draft(path, payload))
         path = target
     edit_yaml(client, base, item, new=True, profile_alias=profile_alias, draft_path=path)
 
@@ -288,13 +276,17 @@ def edit_yaml(client, base, item, new=False, profile_alias='unregistered', draft
         with tempfile.TemporaryDirectory(prefix='kasciidash-edit-') as directory:
             return _edit_yaml(client, base, item, new, profile_alias,
                               Path(directory) / 'edit.yaml')
-    return _edit_yaml(client, base, item, new, profile_alias, draft_path)
+    selected_type = creation_type(client, item)
+    directory = yaml_directory(base, profile_alias, item['resource'])
+    with open(directory / '.drafts.lock', 'a', encoding='utf-8') as lock:
+        os.fchmod(lock.fileno(), 0o600)
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return _edit_yaml(client, base, item, new, profile_alias, draft_path, selected_type)
 
 
-def _edit_yaml(client, base, item, new, profile_alias, path=None):
+def _edit_yaml(client, base, item, new, profile_alias, path=None, selected_type=None):
     original = None
     if new:
-        selected_type = creation_type(client, item)
         kind = selected_type['kind']
         print('Create %s | API: %s | Scope: %s' % (kind, selected_type['apiVersion'],
               'Namespace' if selected_type['namespaced'] else 'Cluster'))
@@ -328,6 +320,8 @@ def _edit_yaml(client, base, item, new, profile_alias, path=None):
             expected = (selected_type['apiVersion'], kind, namespace or None, name)
     else:
         original = read_object(client, item)
+        if not (original.get('metadata') or {}).get('uid') or not (original.get('metadata') or {}).get('resourceVersion'):
+            raise ValueError('Missing UID/resourceVersion. Refresh the list before editing.')
         content, error = client.text('create', '--dry-run=client', '--validate=false', '-f', '-', *scope(item), '-o', 'yaml', input_text=json.dumps(editable_object(original)))
         if error:
             raise ValueError(error)
@@ -354,9 +348,23 @@ def _edit_yaml(client, base, item, new, profile_alias, path=None):
         # Keep exactly these bytes for every subprocess. The retained draft may
         # be edited externally while the user reviews the approval prompt.
         payload = path.read_bytes().decode('utf-8')
+        if original is not None:
+            parsed, error = client.call('create', '--dry-run=client', '--validate=false', '-f', '-', *selected_scope, '-o', 'json', input_text=payload)
+            if error or not isinstance(parsed, dict) or object_key(parsed) != object_key(original):
+                raise ValueError(error or 'Edit must preserve apiVersion, kind, name and namespace.')
+            metadata = parsed.setdefault('metadata', {})
+            for field in ('uid', 'resourceVersion'):
+                expected_token = original['metadata'][field]
+                if metadata.get(field) not in (None, expected_token):
+                    raise ValueError('Do not change ' + field + '. Refresh the list and select the current object before retrying.')
+                metadata[field] = expected_token
+            # JSON is valid YAML. Preview, validation, diff and final PUT all
+            # receive exactly this guarded snapshot, independent of the draft.
+            payload = json.dumps(parsed, ensure_ascii=False, indent=2) + '\n'
         print('\nYAML PREVIEW\n' + safe(payload))
         print('Only the previewed snapshot will be submitted; later draft edits require another review.')
-        verb = 'create' if new else 'apply'
+        verb = 'create' if new else 'replace'
+        approval = 'create' if new else 'apply'
         print('\nChecking YAML with a server dry-run...')
         preview, error = client.call(verb, '--dry-run=server', '-f', '-', *selected_scope, '-o', 'json', input_text=payload)
         if not error and not isinstance(preview, dict):
@@ -368,8 +376,9 @@ def _edit_yaml(client, base, item, new, profile_alias, path=None):
             identity_matches = actual[:2] == expected[:2] and actual[3] == expected[3]
         if not error and new and not identity_matches:
             error = 'New YAML must preserve the selected resource type, name and namespace. Open the matching resource tab to create another type.'
-        if not error and original is not None and object_key(preview) != object_key(original):
-            error = 'Edit must preserve apiVersion, kind, name and namespace. Use New YAML for a different object.'
+        if not error and original is not None and (object_key(preview) != object_key(original) or
+                any((preview.get('metadata') or {}).get(k) != original['metadata'][k] for k in ('uid', 'resourceVersion'))):
+            error = 'The selected object changed. Refresh the list before editing again.'
         if error:
             print('Validation failed: ' + safe(error))
             if profiles.prompt('e: edit again | Enter/Esc: return: ').strip().lower() == 'e':
@@ -380,31 +389,27 @@ def _edit_yaml(client, base, item, new, profile_alias, path=None):
         for obj in objects:
             print('  ' + safe('/'.join(str(v or '-') for v in object_key(obj))))
         if not new:
-            print('\nDIFF (current -> edited)')
-            diff = client.run('diff', '-f', '-', *selected_scope, input_text=payload)
-            print(safe(diff.stdout or '(No differences)'))
-            if diff.returncode not in (0, 1):
-                raise ValueError(diff.stderr or 'kubectl diff failed; no apply was sent.')
+            print('\nDIFF (selected snapshot -> edited)')
+            before = json.dumps(editable_object(original), ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+            after = json.dumps(json.loads(payload), ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+            changes = ''.join(difflib.unified_diff(before.splitlines(True), after.splitlines(True),
+                                                  fromfile='selected', tofile='edited'))
+            print(safe(changes or '(No differences)'))
         args = [verb, '-f', '-', *selected_scope]
         show_command(client, args)
-        choice = profiles.prompt('Type "%s" to deploy, "e" to edit again, Enter/Esc to return: ' % verb).strip()
+        choice = profiles.prompt('Type "%s" to deploy, "e" to edit again, Enter/Esc to return: ' % approval).strip()
         if choice == 'e':
             continue
-        if choice != verb:
+        if choice != approval:
             print('Cancelled; new draft preserved.' if new else 'Cancelled; temporary edit removed on return.')
             return
         output, error = client.text(*args, input_text=payload)
         print(safe(output or ''))
         if error:
-            raise ValueError(error + ('\nDraft preserved: ' + str(path) if new else '\nTemporary edit will be removed.'))
+            raise ValueError(error + ('\nDraft preserved: ' + str(path) if new else '\nUpdate was not accepted. Refresh the list and select the current object before retrying. Temporary edit will be removed.'))
         print('Deployment request accepted.')
         if new:
-            # Do not delete a draft changed externally after its snapshot was approved.
-            if not path.is_symlink() and path.read_bytes() == payload.encode('utf-8'):
-                path.unlink()
-                print('Submitted draft removed.')
-            else:
-                print('Draft changed after approval; the newer draft was kept: ' + str(path))
+            print(cleanup_draft(path, payload.encode('utf-8')))
         return
 
 
