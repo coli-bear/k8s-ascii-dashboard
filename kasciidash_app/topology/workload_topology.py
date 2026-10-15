@@ -3,8 +3,8 @@ import copy
 import textwrap
 from collections import defaultdict
 
-from kuba_dm_app.topology import namespace_topology as graph
-from kuba_dm_app.resources import resource_views as rv
+from kasciidash_app.topology import namespace_topology as graph
+from kasciidash_app.resources import resource_views as rv
 WORKLOAD_RESOURCES = {'pods', 'deployments', 'deployments.apps', 'replicasets', 'replicasets.apps',
                       'statefulsets', 'statefulsets.apps', 'daemonsets', 'daemonsets.apps', 'jobs', 'jobs.batch', 'cronjobs', 'cronjobs.batch'}
 KINDS = {'Deployment', 'ReplicaSet', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob', 'Pod', 'Notebook'}

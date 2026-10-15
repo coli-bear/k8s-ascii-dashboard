@@ -2,12 +2,12 @@ import copy
 import unittest
 from concurrent.futures import Future
 from unittest.mock import Mock, patch
-from kuba_dm_app.ui import dashboard as kuba_dm
-from kuba_dm_app.resources import namespace_views as nv
-from kuba_dm_app.topology import namespace_topology as graph
-from kuba_dm_app.topology import workload_topology as wt
-from kuba_dm_app.resources import resource_detail as rd
-from kuba_dm_app.resources import resource_views as rv
+from kasciidash_app.ui import dashboard as kasciidash
+from kasciidash_app.resources import namespace_views as nv
+from kasciidash_app.topology import namespace_topology as graph
+from kasciidash_app.topology import workload_topology as wt
+from kasciidash_app.resources import resource_detail as rd
+from kasciidash_app.resources import resource_views as rv
 class WorkloadTopologyTests(unittest.TestCase):
     def fixture(self):
         snapshot=nv.demo()
@@ -66,17 +66,17 @@ class WorkloadTopologyTests(unittest.TestCase):
         snapshot=self.fixture();obj=snapshot['objects']['deployments.apps'][0]
         item=dict(resource='deployments.apps',name='web',namespace='demo',namespaced=True,uid=obj['metadata']['uid'])
         c=Mock();c.call.side_effect=[(copy.deepcopy(obj),None),(copy.deepcopy(obj),None)]
-        with patch('kuba_dm_app.resources.namespace_views.collect_objects',return_value=(copy.deepcopy(snapshot['objects']),{'secrets':'Forbidden fixture'})):
+        with patch('kasciidash_app.resources.namespace_views.collect_objects',return_value=(copy.deepcopy(snapshot['objects']),{'secrets':'Forbidden fixture'})):
             result,error=nv.load_workload(c,item)
         self.assertIsNone(error);self.assertEqual(result['focus']['uid'],item['uid']);self.assertIn('secrets',result['errors'])
         self.assertTrue(all(call.args[:3]==('get','deployments.apps','web') for call in c.call.call_args_list))
         replacement=copy.deepcopy(obj);replacement['metadata']['uid']='replacement'
         c.call.side_effect=[(obj,None),(replacement,None)]
-        with patch('kuba_dm_app.resources.namespace_views.collect_objects',return_value=(copy.deepcopy(snapshot['objects']),{})):
+        with patch('kasciidash_app.resources.namespace_views.collect_objects',return_value=(copy.deepcopy(snapshot['objects']),{})):
             result,error=nv.load_workload(c,item)
         self.assertIsNone(result);self.assertIn('changed identity',error)
         c.call.side_effect=[(replacement,None)]
-        with patch('kuba_dm_app.resources.namespace_views.collect_objects') as collect:
+        with patch('kasciidash_app.resources.namespace_views.collect_objects') as collect:
             self.assertIsNone(nv.load_workload(c,item)[0]);collect.assert_not_called()
 
     def test_both_entry_points_use_same_scope_and_refresh_does_not_retarget(self):
@@ -86,13 +86,13 @@ class WorkloadTopologyTests(unittest.TestCase):
         ns.topology_enter();chosen=ns.topology_target
         # Select by UID, independent of the catalog's alphabetic order.
         ns.topology_target=wt.reference(obj)
-        ns_text=rd.content(ns.state(),150,kuba_dm.clean,kuba_dm.ascii_table)
+        ns_text=rd.content(ns.state(),150,kasciidash.clean,kasciidash.ascii_table)
         direct=rd.Detail();direct.open(rd.target(dict(name='deployments.apps',namespaced=True),obj),0);direct.mode='topology'
         payload=copy.deepcopy(snapshot);payload['focus']=wt.reference(obj);direct.buffers['topology']=(payload,None)
-        self.assertEqual(ns_text,rd.content(direct.state(),150,kuba_dm.clean,kuba_dm.ascii_table))
+        self.assertEqual(ns_text,rd.content(direct.state(),150,kasciidash.clean,kasciidash.ascii_table))
         ns.buffers['topology']=(copy.deepcopy(snapshot),None)
         ns.buffers['topology'][0]['objects']['deployments.apps'][0]['metadata']['uid']='new-uid'
-        self.assertIn('WORKLOAD UNAVAILABLE',' '.join(rd.content(ns.state(),100,kuba_dm.clean,kuba_dm.ascii_table)))
+        self.assertIn('WORKLOAD UNAVAILABLE',' '.join(rd.content(ns.state(),100,kasciidash.clean,kasciidash.ascii_table)))
         self.assertTrue(ns.topology_back());self.assertTrue(ns.topology_list())
         ns.close();self.assertIsNone(ns.topology_snapshot)
 
@@ -110,11 +110,11 @@ class WorkloadTopologyTests(unittest.TestCase):
         snapshot=self.fixture();snapshot['errors']['pods']='Forbidden fixture'
         for width in (36,40,60,84,120,200):
             for target in (None,wt.reference(snapshot['objects']['deployments.apps'][0])):
-                lines=wt.render(snapshot,target,width,kuba_dm.ascii_table,kuba_dm.clean,nv.selector_matches)
+                lines=wt.render(snapshot,target,width,kasciidash.ascii_table,kasciidash.clean,nv.selector_matches)
                 self.assertTrue(all(len(line)<=width and line.isascii() for line in lines))
                 self.assertIn('Forbidden fixture',' '.join(lines))
         snapshot['objects']={}
-        self.assertIn('No visible workloads',' '.join(wt.render(snapshot,None,100,kuba_dm.ascii_table,kuba_dm.clean,nv.selector_matches)))
+        self.assertIn('No visible workloads',' '.join(wt.render(snapshot,None,100,kasciidash.ascii_table,kasciidash.clean,nv.selector_matches)))
 
     def run_keys(self, keys):
         snapshots=[];keys=iter(keys)
@@ -130,16 +130,16 @@ class WorkloadTopologyTests(unittest.TestCase):
             def addnstr(self,*args):pass
             def refresh(self):pass
             def getch(self):return next(keys)
-        layout=kuba_dm.layout
+        layout=kasciidash.layout
         def record(data,*args,**kwargs):
             snapshots.append((args[0],kwargs['focus'],copy.deepcopy(data.get('resource_detail'))))
             return layout(data,*args,**kwargs)
-        with patch('kuba_dm_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor',Pool),patch('kuba_dm_app.ui.dashboard.layout',record),patch('kuba_dm_app.ui.dashboard.curses.curs_set'),patch('kuba_dm_app.ui.dashboard.curses.set_escdelay',create=True),patch('kuba_dm_app.ui.dashboard.curses.mousemask'),patch('kuba_dm_app.ui.dashboard.curses.mouseinterval'),patch('kuba_dm_app.ui.dashboard.sys.stdout'):
-            self.assertEqual(kuba_dm.screen(Terminal(),kuba_dm.demo,30,resource_loader=rv.demo_resource,detail_loader=rd.demo),'quit')
+        with patch('kasciidash_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor',Pool),patch('kasciidash_app.ui.dashboard.layout',record),patch('kasciidash_app.ui.dashboard.curses.curs_set'),patch('kasciidash_app.ui.dashboard.curses.set_escdelay',create=True),patch('kasciidash_app.ui.dashboard.curses.mousemask'),patch('kasciidash_app.ui.dashboard.curses.mouseinterval'),patch('kasciidash_app.ui.dashboard.sys.stdout'):
+            self.assertEqual(kasciidash.screen(Terminal(),kasciidash.demo,30,resource_loader=rv.demo_resource,detail_loader=rd.demo),'quit')
         return snapshots
 
     def test_keyboard_namespace_list_graph_escape_restores_workload_list(self):
-        right=kuba_dm.curses.KEY_RIGHT
+        right=kasciidash.curses.KEY_RIGHT
         frames=self.run_keys([ord('Z'),10,-1,10,-1,right,-1,right,-1,right,-1,10,-1,27,-1,27,-1,27,-1,ord('q')])
         topology=[state for view,focus,state in frames if state and state['mode']=='topology']
         self.assertTrue(any(s['topology_state']['target'] for s in topology))
@@ -147,7 +147,7 @@ class WorkloadTopologyTests(unittest.TestCase):
         self.assertEqual(frames[-1][:2],('Z','nav'))
 
     def test_keyboard_workload_detail_topology_escape_returns_resource_list(self):
-        right=kuba_dm.curses.KEY_RIGHT
+        right=kasciidash.curses.KEY_RIGHT
         frames=self.run_keys([ord('3'),10,-1,10,-1,right,-1,right,-1,right,-1,27,-1,ord('q')])
         self.assertTrue(any(s and s['mode']=='topology' and s['target']['resource']=='pods' for _,_,s in frames))
         self.assertEqual(frames[-1][:2],('3','content'));self.assertIsNone(frames[-1][2])

@@ -6,11 +6,11 @@ import unittest
 from concurrent.futures import Future
 from unittest.mock import Mock, patch
 
-from kuba_dm_app.resources import event_resources as er
-from kuba_dm_app.resources import event_views as ev
-from kuba_dm_app.ui import dashboard as kuba_dm
-from kuba_dm_app.resources import resource_actions as actions
-from kuba_dm_app.resources import resource_detail as rd
+from kasciidash_app.resources import event_resources as er
+from kasciidash_app.resources import event_views as ev
+from kasciidash_app.ui import dashboard as kasciidash
+from kasciidash_app.resources import resource_actions as actions
+from kasciidash_app.resources import resource_detail as rd
 def row(kind='Pod', version='v1', name='web', namespace='prod'):
     ref = {'apiVersion': version, 'kind': kind, 'name': name, 'uid': 'event-target-uid', 'resourceVersion': '2'}
     if namespace is not None:
@@ -62,7 +62,7 @@ class EventTargetTests(unittest.TestCase):
         record = row(namespace=None)
         record['raw']['regarding'] = record['raw'].pop('involvedObject')
         self.assertEqual(er.resolve(client(), event_item(record))['namespace'], 'prod')
-        data = kuba_dm.demo()
+        data = kasciidash.demo()
         data['events'] = [dict(record['raw'], type='Warning', note='fixture')]
         self.assertEqual(ev.records(data, '4')[0]['target'], 'Pod/web')
 
@@ -137,12 +137,12 @@ class EventTargetTests(unittest.TestCase):
     def test_edit_uses_resolved_target_and_replacement_blocks_editor(self):
         c = client('Policy', 'example.io/v1', 'policies')
         item = event_item(row('Policy', 'example.io/v1'))
-        with tempfile.TemporaryDirectory() as directory, patch('kuba_dm_app.resources.resource_actions.profiles.clear'), patch('kuba_dm_app.resources.resource_actions.profiles.prompt', return_value=''), patch('builtins.print'), patch.object(actions, 'edit_yaml') as edit:
+        with tempfile.TemporaryDirectory() as directory, patch('kasciidash_app.resources.resource_actions.profiles.clear'), patch('kasciidash_app.resources.resource_actions.profiles.prompt', return_value=''), patch('builtins.print'), patch.object(actions, 'edit_yaml') as edit:
             actions.perform(c, directory, {}, 'edit', item)
             target = edit.call_args.args[2]
             self.assertEqual((target['resource'], target['namespace'], target['uid']), ('policies.example.io', 'prod', 'event-target-uid'))
         c.current['metadata']['uid'] = 'replacement'
-        with tempfile.TemporaryDirectory() as directory, patch('kuba_dm_app.resources.resource_actions.profiles.clear'), patch('kuba_dm_app.resources.resource_actions.profiles.prompt', return_value=''), patch('builtins.print'), patch('kuba_dm_app.resources.resource_actions.subprocess.run') as editor:
+        with tempfile.TemporaryDirectory() as directory, patch('kasciidash_app.resources.resource_actions.profiles.clear'), patch('kasciidash_app.resources.resource_actions.profiles.prompt', return_value=''), patch('builtins.print'), patch('kasciidash_app.resources.resource_actions.subprocess.run') as editor:
             actions.perform(c, directory, {}, 'edit', item)
             editor.assert_not_called()
             c.text.assert_not_called()
@@ -158,18 +158,18 @@ class EventTargetTests(unittest.TestCase):
         for mode in ('event', 'describe', 'yaml', 'event'):
             self.assertEqual(browser.mode, mode)
             browser.switch()
-        self.assertIn('Original event message', ' '.join(rd.content(dict(browser.state(), mode='event'), 80, kuba_dm.clean)))
+        self.assertIn('Original event message', ' '.join(rd.content(dict(browser.state(), mode='event'), 80, kasciidash.clean)))
         browser.refresh(all_modes=True)
         self.assertIn('event', browser.buffers)
         browser.open_event({'message': 'Forbidden fixture', 'source': 'API', 'stamp': '-'}, '5', 0)
         browser.switch()
         self.assertEqual(browser.mode, 'event')
-        header = ' '.join(rd.header(browser.state(), 140, kuba_dm.clean))
+        header = ' '.join(rd.header(browser.state(), 140, kasciidash.clean))
         self.assertIn('No object reference', header)
         self.assertNotIn('edit target YAML', header)
 
     def test_error_with_explicit_object_reference_supports_target_tabs(self):
-        data = kuba_dm.demo()
+        data = kasciidash.demo()
         data['errors'] = [{'message': 'Object query failed', 'reference': row()['raw']['involvedObject']}]
         data['resource_errors'] = {}
         records = ev.records(data, '5')
@@ -182,19 +182,19 @@ class EventTargetTests(unittest.TestCase):
     def test_event_context_cannot_trigger_other_operations_or_edit_without_reference(self):
         for action in ('new', 'actions', 'exec'):
             c = client()
-            with patch('kuba_dm_app.resources.resource_actions.profiles.clear'), patch('kuba_dm_app.resources.resource_actions.profiles.prompt', return_value=''), patch('builtins.print'), patch('kuba_dm_app.resources.resource_actions.edit_yaml') as edit:
+            with patch('kasciidash_app.resources.resource_actions.profiles.clear'), patch('kasciidash_app.resources.resource_actions.profiles.prompt', return_value=''), patch('builtins.print'), patch('kasciidash_app.resources.resource_actions.edit_yaml') as edit:
                 actions.perform(c, '/unused', {}, action, event_item())
                 c.call.assert_not_called()
                 edit.assert_not_called()
         c = client()
         item = event_item({'source': 'Kubernetes', 'message': 'Forbidden fixture', 'stamp': '-'}, '5')
-        with patch('kuba_dm_app.resources.resource_actions.profiles.clear'), patch('kuba_dm_app.resources.resource_actions.profiles.prompt', return_value=''), patch('builtins.print'), patch('kuba_dm_app.resources.resource_actions.edit_yaml') as edit:
+        with patch('kasciidash_app.resources.resource_actions.profiles.clear'), patch('kasciidash_app.resources.resource_actions.profiles.prompt', return_value=''), patch('builtins.print'), patch('kasciidash_app.resources.resource_actions.edit_yaml') as edit:
             actions.perform(c, '/unused', {}, 'edit', item)
             c.call.assert_not_called()
             edit.assert_not_called()
 
     def test_event_target_layout_is_ascii_and_responsive(self):
-        data = kuba_dm.demo()
+        data = kasciidash.demo()
         browser = rd.Detail()
         browser.open_event(row(), '4', 0)
         for mode in ('event', 'describe', 'yaml'):
@@ -204,7 +204,7 @@ class EventTargetTests(unittest.TestCase):
             data['event_state'] = {'detail': browser.item['event_row'], 'index': 0}
             for width in (40, 60, 80, 100, 160, 240):
                 for height in (18, 30, 50):
-                    lines, *_ = kuba_dm.layout(data, '4', width, height=height, focus='content')
+                    lines, *_ = kasciidash.layout(data, '4', width, height=height, focus='content')
                     self.assertTrue(all(len(line) == width and line.isascii() for line in lines))
 
     def test_keyboard_target_tabs_edit_and_escape_keep_event_row(self):
@@ -213,7 +213,7 @@ class EventTargetTests(unittest.TestCase):
             def submit(self, fn, *args):
                 future = Future(); future.set_result(fn(*args)); return future
             def shutdown(self, **kwargs): pass
-        keys = iter([ord('4'), 10, 10, kuba_dm.curses.KEY_RIGHT, -1, kuba_dm.curses.KEY_RIGHT, -1, ord('e'), -1, 27, -1, 27, -1, ord('q')])
+        keys = iter([ord('4'), 10, 10, kasciidash.curses.KEY_RIGHT, -1, kasciidash.curses.KEY_RIGHT, -1, ord('e'), -1, 27, -1, 27, -1, ord('q')])
         class Terminal:
             def timeout(self, value): pass
             def getmaxyx(self): return 40, 160
@@ -223,15 +223,15 @@ class EventTargetTests(unittest.TestCase):
             def getch(self): return next(keys)
         loads, frames = [], []
         action = Mock()
-        real_layout = kuba_dm.layout
+        real_layout = kasciidash.layout
         def load(item, mode):
             loads.append(mode)
             return 'TARGET: ' + mode, None
         def record(data, *args, **kwargs):
             frames.append((args[0], kwargs['focus'], copy.deepcopy(data.get('event_state')), copy.deepcopy(data.get('resource_detail'))))
             return real_layout(data, *args, **kwargs)
-        with patch('kuba_dm_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor', Pool), patch('kuba_dm_app.ui.dashboard.layout', record), patch('kuba_dm_app.ui.dashboard.curses.curs_set'), patch('kuba_dm_app.ui.dashboard.curses.set_escdelay', create=True), patch('kuba_dm_app.ui.dashboard.curses.mousemask'), patch('kuba_dm_app.ui.dashboard.curses.mouseinterval'), patch('kuba_dm_app.ui.dashboard.sys.stdout'), patch('kuba_dm_app.ui.dashboard.terminal_action', side_effect=lambda terminal, callback: callback()):
-            self.assertEqual(kuba_dm.screen(Terminal(), kuba_dm.demo, 30, detail_loader=load, action_handler=action), 'quit')
+        with patch('kasciidash_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor', Pool), patch('kasciidash_app.ui.dashboard.layout', record), patch('kasciidash_app.ui.dashboard.curses.curs_set'), patch('kasciidash_app.ui.dashboard.curses.set_escdelay', create=True), patch('kasciidash_app.ui.dashboard.curses.mousemask'), patch('kasciidash_app.ui.dashboard.curses.mouseinterval'), patch('kasciidash_app.ui.dashboard.sys.stdout'), patch('kasciidash_app.ui.dashboard.terminal_action', side_effect=lambda terminal, callback: callback()):
+            self.assertEqual(kasciidash.screen(Terminal(), kasciidash.demo, 30, detail_loader=load, action_handler=action), 'quit')
         self.assertEqual(loads, ['describe', 'yaml', 'yaml'])
         action.assert_called_once()
         self.assertEqual(action.call_args.args[0], 'edit')

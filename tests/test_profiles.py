@@ -8,8 +8,8 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from kuba_dm_app.ui import dashboard as kuba_dm
-from kuba_dm_app.config import profiles
+from kasciidash_app.ui import dashboard as kasciidash
+from kasciidash_app.config import profiles
 CONFIG = {'apiVersion': 'v1', 'kind': 'Config', 'current-context': 'ctx',
           'clusters': [{'name': 'cluster', 'cluster': {'server': 'https://cluster.invalid'}}],
           'contexts': [{'name': 'ctx', 'context': {'cluster': 'cluster', 'user': 'user'}}],
@@ -91,7 +91,7 @@ class ProfileTests(unittest.TestCase):
 
     def test_prometheus_url_auth_response_and_redirect_validation(self):
         good = {'status': 'success', 'data': {'resultType': 'vector', 'result': [{'value': [123, '1']}]}}
-        with patch('kuba_dm_app.config.profiles.urllib.request.build_opener') as build, patch.dict(os.environ, {'TEST_PROM_TOKEN': 'private-fixture'}):
+        with patch('kasciidash_app.config.profiles.urllib.request.build_opener') as build, patch.dict(os.environ, {'TEST_PROM_TOKEN': 'private-fixture'}):
             response = build.return_value.open.return_value.__enter__.return_value
             response.read.return_value = json.dumps(good).encode()
             checked = profiles.check_prometheus({'endpoint': 'https://prom.invalid/prefix', 'token_env': 'TEST_PROM_TOKEN'})
@@ -108,7 +108,7 @@ class ProfileTests(unittest.TestCase):
             with self.assertRaises(ValueError): profiles.prometheus_config({'endpoint': endpoint})
         with self.assertRaises(ValueError): profiles.prometheus_config({'endpoint': 'http://host', 'token': 'secret'})
         with self.assertRaisesRegex(ValueError, 'not set'):
-            profiles.check_prometheus({'endpoint': 'http://prom.invalid', 'token_env': 'KUBA_DM_TEST_MISSING_TOKEN'})
+            profiles.check_prometheus({'endpoint': 'http://prom.invalid', 'token_env': 'KASCIIDASH_TEST_MISSING_TOKEN'})
         self.assertIsNone(profiles.NoRedirect().redirect_request(None, None, 302, '', {}, 'http://other.invalid'))
 
     def test_discovery_has_all_tcp_nodeports_and_tolerates_nullable_fields(self):
@@ -132,17 +132,17 @@ class ProfileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); source = root / 'input.conf'; source.write_text('fixture')
             store = profiles.Store(root); client = Mock(); client.call.return_value = (CONFIG, None)
-            with patch('builtins.input', side_effect=[str(source), 'demo']), patch('kuba_dm_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
+            with patch('builtins.input', side_effect=[str(source), 'demo']), patch('kasciidash_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
                 item = profiles.register_prompt(store, lambda path, context: client)
             client.call.assert_called_once_with('config', 'view', '--raw', '--flatten', '-o', 'json')
             settings_file = root / 'prom.json'; settings_file.write_text('{"endpoint":"http://prom.invalid:9090"}')
-            with patch('builtins.input', side_effect=['j', str(settings_file)]), patch('kuba_dm_app.config.profiles.clear'), \
-                 patch('kuba_dm_app.config.profiles.check_prometheus', side_effect=ValueError('offline')), contextlib.redirect_stdout(io.StringIO()):
+            with patch('builtins.input', side_effect=['j', str(settings_file)]), patch('kasciidash_app.config.profiles.clear'), \
+                 patch('kasciidash_app.config.profiles.check_prometheus', side_effect=ValueError('offline')), contextlib.redirect_stdout(io.StringIO()):
                 with self.assertRaisesRegex(ValueError, 'offline'):
                     profiles.connection_prompt(store, item, lambda p, c: client, 8)
             self.assertFalse(store.items[0]['prometheus'])
-            with patch('builtins.input', side_effect=['j', str(settings_file), '']), patch('kuba_dm_app.config.profiles.clear'), \
-                 patch('kuba_dm_app.config.profiles.check_prometheus', return_value={'endpoint': 'http://prom.invalid:9090', 'verified_at': 'fixture'}), contextlib.redirect_stdout(io.StringIO()):
+            with patch('builtins.input', side_effect=['j', str(settings_file), '']), patch('kasciidash_app.config.profiles.clear'), \
+                 patch('kasciidash_app.config.profiles.check_prometheus', return_value={'endpoint': 'http://prom.invalid:9090', 'verified_at': 'fixture'}), contextlib.redirect_stdout(io.StringIO()):
                 profiles.connection_prompt(store, item, lambda p, c: client, 8)
             self.assertEqual(profiles.Store(root).items[0]['prometheus']['endpoint'], 'http://prom.invalid:9090')
 
@@ -158,8 +158,8 @@ class ProfileTests(unittest.TestCase):
                 ({'items': [{'status': {'addresses': [{'type': 'InternalIP', 'address': ip}]}} for ip in ('10.10.12.131', '10.10.12.135')]}, None)]
             factory = Mock(return_value=client)
             output = io.StringIO()
-            with patch('builtins.input', side_effect=['2', '2', '', '']) as read, patch('kuba_dm_app.config.profiles.clear'), \
-                 patch('kuba_dm_app.config.profiles.check_prometheus', side_effect=lambda config, timeout: dict(config, verified_at='fixture')) as check, \
+            with patch('builtins.input', side_effect=['2', '2', '', '']) as read, patch('kasciidash_app.config.profiles.clear'), \
+                 patch('kasciidash_app.config.profiles.check_prometheus', side_effect=lambda config, timeout: dict(config, verified_at='fixture')) as check, \
                  contextlib.redirect_stdout(output):
                 profiles.connection_prompt(store, profile, factory, 8)
             factory.assert_called_once_with(store.config_path(profile), 'ctx')
@@ -178,7 +178,7 @@ class ProfileTests(unittest.TestCase):
             client = Mock(); client.call.return_value = ({'items': []}, None)
             for answers in (['1\x1b'], ['u', '10.10.12.135', '', '']):
                 with self.subTest(answers=answers), patch('builtins.input', side_effect=answers) as read, \
-                     patch('kuba_dm_app.config.profiles.clear'), patch('kuba_dm_app.config.profiles.check_prometheus') as check, contextlib.redirect_stdout(io.StringIO()):
+                     patch('kasciidash_app.config.profiles.clear'), patch('kasciidash_app.config.profiles.check_prometheus') as check, contextlib.redirect_stdout(io.StringIO()):
                     profiles.connection_prompt(store, profile, lambda path, context: client, 8)
                 check.assert_not_called()
                 self.assertNotIn('Auth:', str(read.call_args_list))
@@ -194,32 +194,32 @@ class ProfileTests(unittest.TestCase):
             clients, snapshots = [], []
             def factory(path, context, timeout):
                 clients.append((path, context)); return Mock()
-            def collect(client, info): snapshots.append(info.copy()); return kuba_dm.demo()
+            def collect(client, info): snapshots.append(info.copy()); return kasciidash.demo()
             count = 0
             def wrapper(fn, loader, *args):
                 nonlocal count
                 loader(); count += 1
                 return 'configs' if count == 1 else 'quit'
-            with patch.object(kuba_dm, 'BASE', root), patch('sys.argv', ['kuba_dm']), \
-                 patch('kuba_dm_app.ui.dashboard.shutil.which', return_value='/kubectl'), patch('sys.stdin.isatty', return_value=True), \
-                 patch('sys.stdout.isatty', return_value=True), patch('kuba_dm_app.ui.dashboard.Client', factory), \
-                 patch('kuba_dm_app.ui.dashboard.identity', return_value={'cluster': 'cluster', 'context': 'ctx', 'server': 'https://fixture'}), \
-                 patch('kuba_dm_app.ui.dashboard.collect', collect), patch('kuba_dm_app.ui.dashboard.curses.wrapper', wrapper), \
-                 patch('kuba_dm_app.config.profiles.manage', return_value=second) as manage, patch('kuba_dm_app.config.profiles.clear'):
-                self.assertEqual(kuba_dm.main(), 0)
+            with patch.object(kasciidash, 'BASE', root), patch('sys.argv', ['kasciidash']), \
+                 patch('kasciidash_app.ui.dashboard.shutil.which', return_value='/kubectl'), patch('sys.stdin.isatty', return_value=True), \
+                 patch('sys.stdout.isatty', return_value=True), patch('kasciidash_app.ui.dashboard.Client', factory), \
+                 patch('kasciidash_app.ui.dashboard.identity', return_value={'cluster': 'cluster', 'context': 'ctx', 'server': 'https://fixture'}), \
+                 patch('kasciidash_app.ui.dashboard.collect', collect), patch('kasciidash_app.ui.dashboard.curses.wrapper', wrapper), \
+                 patch('kasciidash_app.config.profiles.manage', return_value=second) as manage, patch('kasciidash_app.config.profiles.clear'):
+                self.assertEqual(kasciidash.main(), 0)
             self.assertEqual([i['alias'] for i in snapshots], ['first', 'second'])
             self.assertEqual([i['prometheus']['endpoint'] for i in snapshots], ['http://first.invalid', 'http://second.invalid'])
             self.assertEqual([p for p, c in clients], [store.config_path(first), store.config_path(second)])
             manage.assert_called_once()
             self.assertEqual(profiles.Store(root).preferred()['id'], second['id'])
             snapshots.clear()
-            with patch.object(kuba_dm, 'BASE', root), patch('sys.argv', ['kuba_dm']), \
-                 patch('kuba_dm_app.ui.dashboard.shutil.which', return_value='/kubectl'), patch('sys.stdin.isatty', return_value=True), \
-                 patch('sys.stdout.isatty', return_value=True), patch('kuba_dm_app.ui.dashboard.Client', factory), \
-                 patch('kuba_dm_app.ui.dashboard.identity', return_value={'cluster': 'cluster', 'context': 'ctx', 'server': 'https://fixture'}), \
-                 patch('kuba_dm_app.ui.dashboard.collect', collect), patch('kuba_dm_app.ui.dashboard.curses.wrapper', side_effect=lambda fn, loader, *a: (loader(), 'quit')[1]), \
-                 patch('kuba_dm_app.config.profiles.manage') as manage, patch('kuba_dm_app.config.profiles.clear'):
-                self.assertEqual(kuba_dm.main(), 0)
+            with patch.object(kasciidash, 'BASE', root), patch('sys.argv', ['kasciidash']), \
+                 patch('kasciidash_app.ui.dashboard.shutil.which', return_value='/kubectl'), patch('sys.stdin.isatty', return_value=True), \
+                 patch('sys.stdout.isatty', return_value=True), patch('kasciidash_app.ui.dashboard.Client', factory), \
+                 patch('kasciidash_app.ui.dashboard.identity', return_value={'cluster': 'cluster', 'context': 'ctx', 'server': 'https://fixture'}), \
+                 patch('kasciidash_app.ui.dashboard.collect', collect), patch('kasciidash_app.ui.dashboard.curses.wrapper', side_effect=lambda fn, loader, *a: (loader(), 'quit')[1]), \
+                 patch('kasciidash_app.config.profiles.manage') as manage, patch('kasciidash_app.config.profiles.clear'):
+                self.assertEqual(kasciidash.main(), 0)
                 manage.assert_not_called()
             self.assertEqual([i['alias'] for i in snapshots], ['second'])
 
@@ -230,7 +230,7 @@ class ProfileTests(unittest.TestCase):
         config = dict(CONFIG, contexts=CONFIG['contexts'] + [
             {'name': 'other', 'context': {'cluster': 'other-cluster', 'user': 'operator'}}])
         output = io.StringIO()
-        with patch('builtins.input', return_value='2'), patch('kuba_dm_app.config.profiles.clear'), contextlib.redirect_stdout(output):
+        with patch('builtins.input', return_value='2'), patch('kasciidash_app.config.profiles.clear'), contextlib.redirect_stdout(output):
             self.assertEqual(profiles.choose_connection(config)['name'], 'other')
         self.assertIn('Cluster: other-cluster | Account: operator', output.getvalue())
         self.assertNotIn('Choose context', output.getvalue())
@@ -242,7 +242,7 @@ class ProfileTests(unittest.TestCase):
             client_factory = Mock()
             output = io.StringIO()
             with patch('builtins.input', side_effect=['e', '1', 'production', '']) as read, \
-                 patch('kuba_dm_app.config.profiles.clear'), contextlib.redirect_stdout(output):
+                 patch('kasciidash_app.config.profiles.clear'), contextlib.redirect_stdout(output):
                 selected = profiles.manage(store, item, client_factory)
             self.assertEqual(selected['alias'], 'production')
             client_factory.assert_not_called()
@@ -258,7 +258,7 @@ class ProfileTests(unittest.TestCase):
             item = store.update(item['id'], prometheus={'endpoint': 'http://old-cluster.invalid'})
             config = dict(CONFIG, contexts=CONFIG['contexts'] + [{'name': 'other', 'context': {'cluster': 'other-cluster'}}])
             client = Mock(); client.call.return_value = (config, None)
-            with patch('builtins.input', side_effect=['k', '1', '2', '']), patch('kuba_dm_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
+            with patch('builtins.input', side_effect=['k', '1', '2', '']), patch('kasciidash_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
                 selected = profiles.manage(store, item, lambda p, c: client)
             self.assertEqual(selected['context'], 'other')
             self.assertFalse(selected['prometheus']['endpoint'])
@@ -268,13 +268,13 @@ class ProfileTests(unittest.TestCase):
             root = Path(folder); source = root / 'sample'; source.write_text('fixture')
             store = profiles.Store(root)
             client = Mock(); client.call.return_value = (CONFIG, None)
-            with patch('builtins.input', side_effect=['a', str(source), 'sample']), patch('kuba_dm_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
+            with patch('builtins.input', side_effect=['a', str(source), 'sample']), patch('kasciidash_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
                 selected = profiles.manage(store, None, lambda p, c: client)
             self.assertEqual(selected['alias'], 'sample')
-            with patch('builtins.input', side_effect=['e', '1', 'renamed', '']), patch('kuba_dm_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
+            with patch('builtins.input', side_effect=['e', '1', 'renamed', '']), patch('kasciidash_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
                 selected = profiles.manage(store, selected, lambda p, c: client)
             self.assertEqual(selected['alias'], 'renamed')
-            with patch('builtins.input', side_effect=['d', '1', 'y', 'q']), patch('kuba_dm_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
+            with patch('builtins.input', side_effect=['d', '1', 'y', 'q']), patch('kasciidash_app.config.profiles.clear'), contextlib.redirect_stdout(io.StringIO()):
                 self.assertIsNone(profiles.manage(store, selected, lambda p, c: client))
             self.assertFalse(profiles.Store(root).items)
             self.assertTrue(store.config_path(selected).is_file())

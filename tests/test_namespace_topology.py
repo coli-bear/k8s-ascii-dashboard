@@ -1,10 +1,10 @@
 import copy
 import unittest
 from unittest.mock import patch
-from kuba_dm_app.ui import dashboard as kuba_dm
-from kuba_dm_app.resources import namespace_views as nv
-from kuba_dm_app.topology import namespace_topology as graph
-from kuba_dm_app.resources import resource_detail as rd
+from kasciidash_app.ui import dashboard as kasciidash
+from kasciidash_app.resources import namespace_views as nv
+from kasciidash_app.topology import namespace_topology as graph
+from kasciidash_app.resources import resource_detail as rd
 class NamespaceTopologyTests(unittest.TestCase):
     def build(self, snapshot):
         return graph.build(snapshot, nv.selector_matches)
@@ -22,10 +22,10 @@ class NamespaceTopologyTests(unittest.TestCase):
         for _ in range(6):
             modes.append(browser.mode);browser.switch()
         self.assertEqual(modes,['overview','resources','treeview','topology','yaml','describe'])
-        header=' '.join(rd.header(browser.state(),200,kuba_dm.clean))
+        header=' '.join(rd.header(browser.state(),200,kasciidash.clean))
         self.assertIn('TreeView | Topology',header)
-        self.assertIn('RELATION TREE VIEW',' '.join(nv.render(nv.demo(),'treeview',100,kuba_dm.ascii_table,kuba_dm.clean)))
-        self.assertIn('WORKLOADS',' '.join(nv.render(nv.demo(),'topology',100,kuba_dm.ascii_table,kuba_dm.clean)))
+        self.assertIn('RELATION TREE VIEW',' '.join(nv.render(nv.demo(),'treeview',100,kasciidash.ascii_table,kasciidash.clean)))
+        self.assertIn('WORKLOADS',' '.join(nv.render(nv.demo(),'topology',100,kasciidash.ascii_table,kasciidash.clean)))
 
     def test_network_shared_objects_are_unique_and_relations_are_typed(self):
         snapshot=self.fixture()

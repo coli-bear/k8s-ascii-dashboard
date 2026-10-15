@@ -8,7 +8,7 @@ import shlex
 import time
 import textwrap
 
-from kuba_dm_app.config import profiles
+from kasciidash_app.config import profiles
 PERIODS = (300, 900, 3600)
 
 

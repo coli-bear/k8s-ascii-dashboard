@@ -7,7 +7,7 @@
 /*.kubeconfig
 
 # Local profiles, Prometheus settings and YAML drafts.
-/.kuba-dm/
+/.kasciidash/
 
 # Python caches and virtual environments.
 __pycache__/

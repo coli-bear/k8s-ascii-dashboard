@@ -18,7 +18,7 @@ try:
     fcntl.ioctl(0, termios.TIOCSCTTY, 0)
     os.execvp(sys.argv[1], sys.argv[1:])
 except OSError as exc:
-    print('KUBA-DM: cannot start terminal command: ' + str(exc), file=sys.stderr)
+    print('KAsciiDash: cannot start terminal command: ' + str(exc), file=sys.stderr)
     sys.exit(127)
 """
 
@@ -38,7 +38,7 @@ def exec_base(base):
 
 def run(argv, first_output_timeout=None):
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
-        raise ValueError('Exec needs an interactive terminal. Run ./kuba-dm directly in a terminal.')
+        raise ValueError('Exec needs an interactive terminal. Run ./kasciidash directly in a terminal.')
     input_fd, output_fd = sys.stdin.fileno(), sys.stdout.fileno()
     saved = termios.tcgetattr(input_fd)
     last_size = None

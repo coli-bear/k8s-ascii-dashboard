@@ -4,9 +4,9 @@ import unittest
 from concurrent.futures import Future
 from unittest.mock import Mock, patch
 
-from kuba_dm_app.ui import dashboard as kuba_dm
-from kuba_dm_app.resources import resource_detail as rd
-from kuba_dm_app.resources import resource_views as rv
+from kasciidash_app.ui import dashboard as kasciidash
+from kasciidash_app.resources import resource_detail as rd
+from kasciidash_app.resources import resource_views as rv
 class DetailTests(unittest.TestCase):
     def test_yaml_describe_exact_identity_and_stdin_manifest(self):
         client = Mock()
@@ -64,16 +64,16 @@ class DetailTests(unittest.TestCase):
         browser.switch(-1);self.assertEqual(browser.mode,'describe')
 
     def test_filtered_selection_sort_and_refresh_identity(self):
-        data=kuba_dm.demo()
+        data=kasciidash.demo()
         first=copy.deepcopy(data['pods'][0]);first['metadata']={'name':'same','namespace':'a','uid':'1'}
         second=copy.deepcopy(first);second['metadata']={'name':'same','namespace':'b','uid':'2'}
         data['pods']=[second,first]
-        resource,rows=kuba_dm.resource_selection(data,'3','pods',None,{})
+        resource,rows=kasciidash.resource_selection(data,'3','pods',None,{})
         self.assertEqual([r['metadata']['namespace'] for r in rows],['a','b'])
         browser=rd.Selection();key=('3','pods');browser.reconcile(key,rows);browser.move(key,rows,1)
         browser.reconcile(key,list(reversed(rows)))
         self.assertEqual(browser.indices[key],0)
-        _,filtered=kuba_dm.resource_selection(data,'3','pods',None,{'ns':'a'})
+        _,filtered=kasciidash.resource_selection(data,'3','pods',None,{'ns':'a'})
         browser.reconcile(key,filtered)
         self.assertEqual(rd.target(resource,filtered[0])['namespace'],'a')
         browser.reconcile(key,[]);self.assertEqual(browser.indices[key],0)
@@ -85,7 +85,7 @@ class DetailTests(unittest.TestCase):
             def submit(self,fn,*args):
                 f=Future();f.set_result(fn(*args));return f
             def shutdown(self,**kwargs):pass
-        keys=iter([ord('3'),10,kuba_dm.curses.KEY_DOWN,10,-1,kuba_dm.curses.KEY_RIGHT,-1,kuba_dm.curses.KEY_RIGHT,-1,ord('p'),-1,27,-1,ord('6'),10,-1,10,-1,kuba_dm.curses.KEY_RIGHT,-1,27,-1,ord('q')])
+        keys=iter([ord('3'),10,kasciidash.curses.KEY_DOWN,10,-1,kasciidash.curses.KEY_RIGHT,-1,kasciidash.curses.KEY_RIGHT,-1,ord('p'),-1,27,-1,ord('6'),10,-1,10,-1,kasciidash.curses.KEY_RIGHT,-1,27,-1,ord('q')])
         class Terminal:
             def timeout(self,v):pass
             def getmaxyx(self):return 45,150
@@ -93,7 +93,7 @@ class DetailTests(unittest.TestCase):
             def addnstr(self,*a):pass
             def refresh(self):pass
             def getch(self):return next(keys)
-        original=kuba_dm.layout
+        original=kasciidash.layout
         def layout(data,*args,**kwargs):
             frames.append((args[0],kwargs['category_tab'],copy.deepcopy(data.get('resource_detail'))))
             result=original(data,*args,**kwargs)
@@ -101,8 +101,8 @@ class DetailTests(unittest.TestCase):
             return result
         def loader(item,mode):
             calls.append((item,mode));return rd.demo(item,mode)
-        with patch('kuba_dm_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor',Pool),patch('kuba_dm_app.ui.dashboard.layout',layout),patch('kuba_dm_app.ui.dashboard.curses.curs_set'),patch('kuba_dm_app.ui.dashboard.curses.set_escdelay',create=True),patch('kuba_dm_app.ui.dashboard.curses.mousemask'),patch('kuba_dm_app.ui.dashboard.curses.mouseinterval'),patch('kuba_dm_app.ui.dashboard.sys.stdout'):
-            self.assertEqual(kuba_dm.screen(Terminal(),kuba_dm.demo,30,resource_loader=rv.demo_resource,detail_loader=loader),'quit')
+        with patch('kasciidash_app.ui.dashboard.concurrent.futures.ThreadPoolExecutor',Pool),patch('kasciidash_app.ui.dashboard.layout',layout),patch('kasciidash_app.ui.dashboard.curses.curs_set'),patch('kasciidash_app.ui.dashboard.curses.set_escdelay',create=True),patch('kasciidash_app.ui.dashboard.curses.mousemask'),patch('kasciidash_app.ui.dashboard.curses.mouseinterval'),patch('kasciidash_app.ui.dashboard.sys.stdout'):
+            self.assertEqual(kasciidash.screen(Terminal(),kasciidash.demo,30,resource_loader=rv.demo_resource,detail_loader=loader),'quit')
         self.assertEqual([mode for item,mode in calls],['yaml','describe','logs','logs_previous','yaml','describe'])
         self.assertEqual(calls[0][0]['name'],'web-abc')
         self.assertTrue(all(tab==0 for view,tab,state in frames if view=='6'))
@@ -110,12 +110,12 @@ class DetailTests(unittest.TestCase):
 
     def test_long_lines_partial_errors_controls_and_small_layouts(self):
         state=dict(target=dict(resource='pods',name='web',namespace='prod',namespaced=True),mode='logs',loading=False,error='waiting',output='x'*300+'\n\x1b[31mend')
-        text='\n'.join(rd.content(state,40,kuba_dm.clean))
+        text='\n'.join(rd.content(state,40,kasciidash.clean))
         self.assertIn('PARTIAL OUTPUT',text);self.assertNotIn('\x1b',text)
         self.assertEqual(text.count('x'),300)
         for width in (60,84,100,150):
-            data=dict(kuba_dm.demo(),resource_detail=state)
-            lines,*_=kuba_dm.layout(data,'3',width,height=25)
+            data=dict(kasciidash.demo(),resource_detail=state)
+            lines,*_=kasciidash.layout(data,'3',width,height=25)
             self.assertTrue(all(len(line)==width for line in lines))
 
 

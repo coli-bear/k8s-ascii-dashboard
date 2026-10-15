@@ -9,12 +9,12 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from kuba_dm_app.ui import dashboard as kuba_dm
-from kuba_dm_app.monitoring import prometheus as m
-from kuba_dm_app.config import profiles
-from kuba_dm_app.resources import resource_actions as a
-from kuba_dm_app.resources import resource_detail as rd
-from kuba_dm_app.resources import resource_views as rv
+from kasciidash_app.ui import dashboard as kasciidash
+from kasciidash_app.monitoring import prometheus as m
+from kasciidash_app.config import profiles
+from kasciidash_app.resources import resource_actions as a
+from kasciidash_app.resources import resource_detail as rd
+from kasciidash_app.resources import resource_views as rv
 from tests.test_resource_actions import client, obj, selected
 
 
@@ -173,7 +173,7 @@ class YamlSnapshotTests(unittest.TestCase):
                     self.assertNotEqual(submitted[0], replacement)
 
     def test_client_json_call_forwards_stdin(self):
-        c = kuba_dm.Client('/synthetic.conf', None, 1)
+        c = kasciidash.Client('/synthetic.conf', None, 1)
         with patch.object(c, 'text', return_value=('{}', None)) as text:
             self.assertEqual(c.call('create', '-f', '-', input_text='fixture'), ({}, None))
         text.assert_called_once_with('create', '-f', '-', input_text='fixture')
@@ -253,29 +253,29 @@ class PodAndMetadataTests(unittest.TestCase):
         for phase, reason, init in [('Pending', 'CrashLoopBackOff', True), ('Pending', 'ImagePullBackOff', False), ('Pending', 'ErrImagePull', True), ('Running', 'CrashLoopBackOff', False)]:
             with self.subTest(phase=phase, reason=reason):
                 pod = self.pod(phase, reason, init)
-                self.assertEqual(kuba_dm.pod_issue(pod), reason)
+                self.assertEqual(kasciidash.pod_issue(pod), reason)
                 data = {'pods': [pod]}
-                self.assertEqual(len(kuba_dm.filtered_workloads(data, 'pods', {'status': reason})['pods']), 1)
-                self.assertIn(reason + ': 1', '\n'.join(kuba_dm.workload_summary(data, 'pods')))
-                self.assertIn(phase + ': 1', '\n'.join(kuba_dm.workload_summary(data, 'pods')))
+                self.assertEqual(len(kasciidash.filtered_workloads(data, 'pods', {'status': reason})['pods']), 1)
+                self.assertIn(reason + ': 1', '\n'.join(kasciidash.workload_summary(data, 'pods')))
+                self.assertIn(phase + ': 1', '\n'.join(kasciidash.workload_summary(data, 'pods')))
 
     def test_normal_init_terminal_and_terminating(self):
-        self.assertEqual(kuba_dm.pod_issue(self.pod()), 'Pending')
+        self.assertEqual(kasciidash.pod_issue(self.pod()), 'Pending')
         pod = self.pod('Running')
         pod['status']['initContainerStatuses'] = [{'state': {'terminated': {'exitCode': 0, 'reason': 'Completed'}}}]
-        self.assertEqual(kuba_dm.pod_issue(pod), '')
-        self.assertEqual(kuba_dm.pod_issue(self.pod('Succeeded')), '')
-        self.assertEqual(kuba_dm.pod_issue(self.pod('Failed')), 'Failed')
+        self.assertEqual(kasciidash.pod_issue(pod), '')
+        self.assertEqual(kasciidash.pod_issue(self.pod('Succeeded')), '')
+        self.assertEqual(kasciidash.pod_issue(self.pod('Failed')), 'Failed')
         pod['metadata']['deletionTimestamp'] = 'fixture'
-        self.assertEqual(kuba_dm.pod_issue(pod), 'Terminating')
+        self.assertEqual(kasciidash.pod_issue(pod), 'Terminating')
 
     def test_initializing_app_does_not_hide_failed_init_container(self):
         pod = self.pod('Pending', 'CrashLoopBackOff', init=True)
         pod['status']['containerStatuses'] = [{'state': {'waiting': {'reason': 'PodInitializing'}}}]
-        self.assertEqual(kuba_dm.pod_issue(pod), 'CrashLoopBackOff')
+        self.assertEqual(kasciidash.pod_issue(pod), 'CrashLoopBackOff')
         pod = self.pod('Pending', 'ImagePullBackOff')
         pod['status']['containerStatuses'].insert(0, {'state': {'waiting': {'reason': 'ContainerCreating'}}})
-        self.assertEqual(kuba_dm.pod_issue(pod), 'ImagePullBackOff')
+        self.assertEqual(kasciidash.pod_issue(pod), 'ImagePullBackOff')
 
     def test_sensitive_metadata_is_excluded_in_category_and_api_lists(self):
         for resource, kind in [('secrets', 'Secret'), ('secret', 'Secret'), ('configmaps', 'ConfigMap')]:

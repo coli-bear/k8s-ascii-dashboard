@@ -3,11 +3,11 @@ import copy
 import json
 import re
 import textwrap
-from kuba_dm_app.resources import node_views
-from kuba_dm_app.resources import namespace_views
-from kuba_dm_app.resources import event_resources
-from kuba_dm_app.resources import event_views
-from kuba_dm_app.topology import workload_topology
+from kasciidash_app.resources import node_views
+from kasciidash_app.resources import namespace_views
+from kasciidash_app.resources import event_resources
+from kasciidash_app.resources import event_views
+from kasciidash_app.topology import workload_topology
 def identity(obj):
     meta = obj.get('metadata') or {}
     return meta.get('uid') or (meta.get('namespace', ''), meta.get('name', ''))

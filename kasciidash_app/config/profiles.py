@@ -140,7 +140,7 @@ def prometheus_config(value):
 class Store:
     def __init__(self, base):
         self.base = Path(base).resolve()
-        self.path = self.base / '.kuba-dm' / 'kuba_dm_app.config.profiles.json'
+        self.path = self.base / '.kasciidash' / 'kasciidash_app.config.profiles.json'
         self.original = self.path.read_text(encoding='utf-8') if self.path.exists() else None
         if self.original is None:
             self.data = {'version': 1, 'profiles': [
@@ -209,7 +209,7 @@ class Store:
             fcntl.flock(lock, fcntl.LOCK_EX)
             current = self.path.read_text(encoding='utf-8') if self.path.exists() else None
             if current != self.original:
-                raise ValueError('Profiles changed in another process. Restart KUBA-DM to reload them.')
+                raise ValueError('Profiles changed in another process. Restart KAsciiDash to reload them.')
             encoded = json.dumps(self.data, ensure_ascii=False, indent=2) + '\n'
             atomic_write(self.path, encoded)
             self.original = encoded
@@ -399,7 +399,7 @@ def choose_connection(config):
 
 
 def register_prompt(store, client_factory):
-    clear(); print('KUBA-DM | Register profile\n' + '-' * 78)
+    clear(); print('KAsciiDash | Register profile\n' + '-' * 78)
     raw = input('Kubeconfig path (Enter cancel): ').strip()
     if not raw: return None
     source = Path(raw).expanduser().resolve()
@@ -475,7 +475,7 @@ def _connection_prompt(store, profile, client_factory, timeout):
     candidates, addresses, errors = service_candidates(client)
     page = 0
     while True:
-        clear(); print('KUBA-DM | Prometheus / ' + safe(profile['alias']) + '\n' + '-' * 78)
+        clear(); print('KAsciiDash | Prometheus / ' + safe(profile['alias']) + '\n' + '-' * 78)
         print('Config file: ' + safe(Path(profile['kubeconfig']).name))
         print('Saved connection: ' + safe(old.get('endpoint') or '(not configured)'))
         print('Step 1/3 - Choose a Service port. Enter its number (example: 1).')
@@ -557,7 +557,7 @@ def _connection_prompt(store, profile, client_factory, timeout):
 def manage(store, current, client_factory, timeout=8):
     """Return a selected profile or None on quit; usable without cluster connectivity."""
     while True:
-        clear(); print('KUBA-DM | Settings / Profiles\n' + '-' * 78)
+        clear(); print('KAsciiDash | Settings / Profiles\n' + '-' * 78)
         width = min(120, max(60, shutil.get_terminal_size((120, 40)).columns))
         alias_width, file_width = (20, 32) if width >= 90 else (15, 20)
         widths = [4, alias_width, file_width, width - 17 - alias_width - file_width]
@@ -596,7 +596,7 @@ def manage(store, current, client_factory, timeout=8):
                     lambda p: p['alias'] + ' | ' + Path(p['kubeconfig']).name)
                 if not selected: continue
                 if choice == 'v':
-                    clear(); print('KUBA-DM | Profile details\n' + '-' * 78)
+                    clear(); print('KAsciiDash | Profile details\n' + '-' * 78)
                     print('Display name: ' + safe(selected['alias']))
                     print('Conf file: ' + safe(store.config_path(selected)))
                     print('Connection inside this file: ' + safe(selected.get('context') or 'Use the default connection saved in the file'))
@@ -622,4 +622,4 @@ def manage(store, current, client_factory, timeout=8):
         except InputCancelled:
             continue
         except (ValueError, OSError) as exc:
-            print('KUBA-DM: ' + safe(exc)); input('Enter to continue: ')
+            print('KAsciiDash: ' + safe(exc)); input('Enter to continue: ')

@@ -1,6 +1,6 @@
-# KUBA-DM
+# KAsciiDash
 
-Kubernetes administration in your terminal.
+An ASCII terminal console for Kubernetes operations.
 
 macOS·Ubuntu·Rocky Linux에서 사용할 수 있는 Python3 ASCII Kubernetes 운영 대시보드. 상단 연결 정보, 왼쪽 고정 메뉴, 중앙 요약 카드와 노드 자원 패널로 구성합니다. 기본 조회와 명시적으로 확인하는 운영 작업을 지원하며 kubeconfig의 current-context는 변경하지 않습니다.
 
@@ -15,7 +15,7 @@ Python **3.9 이상**과 `kubectl`이 PATH에 있어야 합니다. Python 표준
 | macOS | Python 3.9 이상과 kubectl 설치. Homebrew 사용 시 아래 예시 참고 |
 | Ubuntu | 아래 apt 예시로 Python·편집기 설치 후 kubectl 설치 |
 | Rocky Linux 9 이상 | 아래 dnf 예시로 Python·편집기 설치 후 kubectl 설치 |
-| Rocky Linux 8 또는 Python 3.9 미만 | Python 3.9 이상의 별도 인터프리터로 `kuba_dm.py` 직접 실행 |
+| Rocky Linux 8 또는 Python 3.9 미만 | Python 3.9 이상의 별도 인터프리터로 `kasciidash.py` 직접 실행 |
 
 macOS에서 Homebrew가 설치되어 있다면:
 
@@ -48,29 +48,29 @@ kubectl version --client
 
 ```sh
 python3.11 -c 'import curses; print("curses OK")'
-python3.11 kuba_dm.py --demo
-python3.11 kuba_dm.py
+python3.11 kasciidash.py --demo
+python3.11 kasciidash.py
 ```
 
-`kuba-dm`는 PATH의 `python3`를 실행하므로 다른 버전은 위와 같이 직접 지정합니다.
+`kasciidash`는 PATH의 `python3`를 실행하므로 다른 버전은 위와 같이 직접 지정합니다.
 
 ### 프로젝트 배치와 첫 실행
 
-프로젝트 디렉토리 전체를 실행할 컴퓨터로 복사합니다. `kuba_dm.py` 하나만 복사하면 `kuba_dm_app/` 패키지를 불러올 수 없습니다. 아래 `/path/to/k8s-dashcli`는 실제 프로젝트 경로로 바꿉니다.
+프로젝트 디렉토리 전체를 실행할 컴퓨터로 복사합니다. `kasciidash.py` 하나만 복사하면 `kasciidash_app/` 패키지를 불러올 수 없습니다. 아래 `/path/to/k8s-dashcli`는 실제 프로젝트 경로로 바꿉니다.
 
 ```sh
 cd /path/to/k8s-dashcli
-chmod +x kuba-dm
+chmod +x kasciidash
 mkdir -p .kube
-./kuba-dm --demo  # 접속 정보 없이 화면 확인, q로 종료
+./kasciidash --demo  # 접속 정보 없이 화면 확인, q로 종료
 
 # 실제 kubeconfig를 .kube/<k8s-cluster-name>.conf 형태로 저장
 cp /path/to/your/kubeconfig .kube/my-cluster.conf
 chmod 600 .kube/my-cluster.conf
-./kuba-dm
+./kasciidash
 ```
 
-외부 kubeconfig에 상대 경로 인증서가 있다면 단순 복사 대신 `./kuba-dm` 실행 후 등록 화면에서 **원본 파일의 절대 경로**를 입력하세요. 앱이 인증서를 포함한 사본으로 가져옵니다.
+외부 kubeconfig에 상대 경로 인증서가 있다면 단순 복사 대신 `./kasciidash` 실행 후 등록 화면에서 **원본 파일의 절대 경로**를 입력하세요. 앱이 인증서를 포함한 사본으로 가져옵니다.
 
 실제 접속 전에 kubeconfig 자체가 동작하는지 확인할 수 있습니다:
 
@@ -84,21 +84,21 @@ kubectl --kubeconfig /path/to/your/kubeconfig get nodes
 
 프로필 등록 전 [kubeconfig 발급·클러스터 권한·운영 주의사항](docs/kubeconfig-access.md)을 참고하세요. 등록 자체에는 슈퍼 관리자 권한이 필요하지 않으며, 조회용 계정과 전체 운영용 계정의 발급 방법·권한 검증·갱신 및 회수 절차를 설명합니다.
 
-최초 실행 시 `.kube/*.conf`를 파일명 순서로 프로필에 등록하여 **기존 파일을 직접 참조**합니다. 자동 등록은 사본을 만들지 않습니다. 이후에는 `.kuba-dm/profiles.json`에 등록된 순서를 사용합니다. 다음 실행에서는 마지막으로 대시보드를 연 프로필에 자동 연결합니다. 저장된 선택이 없거나 해당 프로필을 삭제했다면 첫 프로필로 연결합니다. 프로필이 없으면 등록 화면으로 안내합니다. `Settings → Profiles` 또는 `c`에서 등록·조회·별명 수정·고급 접속 설정 변경·삭제·선택 및 Prometheus 설정을 관리합니다. 시작 전 kubeconfig 선택 질문은 표시하지 않습니다.
+최초 실행 시 `.kube/*.conf`를 파일명 순서로 프로필에 등록하여 **기존 파일을 직접 참조**합니다. 자동 등록은 사본을 만들지 않습니다. 이후에는 `.kasciidash/profiles.json`에 등록된 순서를 사용합니다. 다음 실행에서는 마지막으로 대시보드를 연 프로필에 자동 연결합니다. 저장된 선택이 없거나 해당 프로필을 삭제했다면 첫 프로필로 연결합니다. 프로필이 없으면 등록 화면으로 안내합니다. `Settings → Profiles` 또는 `c`에서 등록·조회·별명 수정·고급 접속 설정 변경·삭제·선택 및 Prometheus 설정을 관리합니다. 시작 전 kubeconfig 선택 질문은 표시하지 않습니다.
 
-외부 kubeconfig는 프로필 등록에서 경로를 입력합니다. `kubectl config view --raw --flatten`으로 인증서를 포함한 관리용 복사본을 `.kube/<이름>-<식별자>.conf`에 저장하므로 상대 인증서 경로가 깨지지 않습니다. 원본은 수정하지 않습니다. 외부 원본을 갱신해도 관리 사본은 자동 갱신되지 않습니다. 이미 등록된 `.kube` 참조 파일 경로를 다시 입력하면 기존 프로필을 반환합니다. exec 인증 플러그인은 해당 CLI가 KUBA-DM를 실행하는 컴퓨터에 설치되어 있어야 합니다. 프로필의 context를 변경하면 Prometheus 설정을 초기화합니다.
+외부 kubeconfig는 프로필 등록에서 경로를 입력합니다. `kubectl config view --raw --flatten`으로 인증서를 포함한 관리용 복사본을 `.kube/<이름>-<식별자>.conf`에 저장하므로 상대 인증서 경로가 깨지지 않습니다. 원본은 수정하지 않습니다. 외부 원본을 갱신해도 관리 사본은 자동 갱신되지 않습니다. 이미 등록된 `.kube` 참조 파일 경로를 다시 입력하면 기존 프로필을 반환합니다. exec 인증 플러그인은 해당 CLI가 KAsciiDash를 실행하는 컴퓨터에 설치되어 있어야 합니다. 프로필의 context를 변경하면 Prometheus 설정을 초기화합니다.
 
-인증 갱신 시에는 KUBA-DM를 종료하고 등록 방식에 맞는 `.kube` 참조 파일을 검증된 갱신 파일로 원자적으로 교체하거나, 현재 등록 파일과 다른 보호 경로의 갱신 파일을 임시 alias로 가져와 검증 후 전환합니다. 새 프로필은 Prometheus도 다시 설정합니다. 프로필 삭제는 파일이나 Kubernetes 계정·RBAC를 삭제하지 않습니다. 자세한 절차는 [프로필 등록·인증 갱신](docs/kubeconfig-access.md#6-kuba-dm-프로필-등록)을 참고하세요.
+인증 갱신 시에는 KAsciiDash를 종료하고 등록 방식에 맞는 `.kube` 참조 파일을 검증된 갱신 파일로 원자적으로 교체하거나, 현재 등록 파일과 다른 보호 경로의 갱신 파일을 임시 alias로 가져와 검증 후 전환합니다. 새 프로필은 Prometheus도 다시 설정합니다. 프로필 삭제는 파일이나 Kubernetes 계정·RBAC를 삭제하지 않습니다. 자세한 절차는 [프로필 등록·인증 갱신](docs/kubeconfig-access.md#6-kasciidash-프로필-등록)을 참고하세요.
 
-인증 파일은 `.kube` 또는 저장소 밖의 보호 디렉토리에 보관합니다. `.kube/*`, `.kuba-dm/`, 루트의 `*.conf`·`*.kubeconfig`는 Git에서 제외합니다. 이미 추적된 파일과 과거 커밋에는 소급 적용되지 않습니다.
+인증 파일은 `.kube` 또는 저장소 밖의 보호 디렉토리에 보관합니다. `.kube/*`, `.kasciidash/`, 루트의 `*.conf`·`*.kubeconfig`는 Git에서 제외합니다. 이미 추적된 파일과 과거 커밋에는 소급 적용되지 않습니다.
 
 ```sh
-./kuba-dm --demo                       # 실제 접속 없는 샘플 화면
-./kuba-dm --demo --once --width 140     # ASCII 화면을 텍스트로 출력
-./kuba-dm --profile my-alias           # 등록된 alias/ID 선택
-./kuba-dm --config /path/dev.conf --context dev-admin  # 일회성 직접 연결; 등록/복사하지 않음
-./kuba-dm --interval 15 --timeout 8
-./kuba-dm --config .kube/dev.conf --once
+./kasciidash --demo                       # 실제 접속 없는 샘플 화면
+./kasciidash --demo --once --width 140     # ASCII 화면을 텍스트로 출력
+./kasciidash --profile my-alias           # 등록된 alias/ID 선택
+./kasciidash --config /path/dev.conf --context dev-admin  # 일회성 직접 연결; 등록/복사하지 않음
+./kasciidash --interval 15 --timeout 8
+./kasciidash --config .kube/dev.conf --once
 ```
 
 ### 실행 옵션
@@ -116,7 +116,7 @@ kubectl --kubeconfig /path/to/your/kubeconfig get nodes
 | `--timeout 8` | kubectl 요청별 제한 시간. 기본 8초 |
 | `--scroll-step 10` | 마우스 휠 이동량. 기본 5줄 |
 
-`--config`와 `--profile`은 동시에 지정할 수 없습니다. 전체 옵션은 `./kuba-dm --help`로 확인합니다.
+`--config`와 `--profile`은 동시에 지정할 수 없습니다. 전체 옵션은 `./kasciidash --help`로 확인합니다.
 
 ### Prometheus 연결 순서
 
@@ -136,8 +136,8 @@ kubectl --kubeconfig /path/to/your/kubeconfig get nodes
 | 경로 | 내용 |
 | --- | --- |
 | `.kube/*.conf` | 클러스터 kubeconfig 사본 |
-| `.kuba-dm/profiles.json` | 별명·kubeconfig 경로·context·프로필별 Prometheus 연결 정보·마지막 선택 ID |
-| `.kuba-dm/<프로필 별명>/<리소스>/<이름>.yaml` | 배포하지 않은 신규 YAML 초안. 성공 시 삭제 |
+| `.kasciidash/profiles.json` | 별명·kubeconfig 경로·context·프로필별 Prometheus 연결 정보·마지막 선택 ID |
+| `.kasciidash/<프로필 별명>/<리소스>/<이름>.yaml` | 배포하지 않은 신규 YAML 초안. 성공 시 삭제 |
 
 다른 컴퓨터에서 사용할 때는 kubeconfig 인증 플러그인·인증 환경변수·사용자 CA 파일도 해당 컴퓨터에 준비해야 합니다. 프로필에 저장된 외부 파일의 절대 경로는 새 환경에 맞게 다시 설정합니다.
 
@@ -145,7 +145,7 @@ kubectl --kubeconfig /path/to/your/kubeconfig get nodes
 
 | 증상 | 확인 방법 |
 | --- | --- |
-| `Permission denied`로 실행되지 않음 | 프로젝트에서 `chmod +x kuba-dm` 실행 |
+| `Permission denied`로 실행되지 않음 | 프로젝트에서 `chmod +x kasciidash` 실행 |
 | `python3: command not found` | Python 설치 후 PATH 확인 |
 | `is_relative_to`, `removesuffix`, `cancel_futures` 관련 오류 | Python 3.9 이상인지 확인 |
 | `No module named curses` / `_curses` | curses 포함 Python 패키지를 설치하고 `python3 -c 'import curses'`로 확인 |
@@ -181,7 +181,7 @@ Settings
   Profiles       [등록 / 조회 / 수정 / 삭제 / 선택 / Prometheus]
 ```
 
-메뉴 앞 번호 없이 모든 대메뉴와 소메뉴를 펼쳐 표시합니다. 화면 높이가 부족하면 선택한 항목이 보이도록 메뉴 표시 범위가 이동합니다. 대메뉴는 들여쓰기를 줄인 구분 제목이며 선택하지 않습니다. 소메뉴에는 `-`를 붙이고, 위/아래 키로 그룹 경계를 넘어 소메뉴를 바로 선택합니다. 첫 메뉴 Overview에서 위로 이동하면 마지막 Profiles로, 마지막에서 아래로 이동하면 Overview로 순환합니다. j/k도 동일하게 동작합니다. Enter로 진입하고 화면 안에서는 좌/우로 탭을 이동합니다. Esc는 메뉴 선택으로 돌아가며, 메뉴에서 다시 누르면 현재 선택을 유지합니다. 화면별 선택 탭을 유지합니다. Errors는 KUBA-DM의 조회/렌더링 오류이며 Kubernetes Warning 이벤트와 구분합니다.
+메뉴 앞 번호 없이 모든 대메뉴와 소메뉴를 펼쳐 표시합니다. 화면 높이가 부족하면 선택한 항목이 보이도록 메뉴 표시 범위가 이동합니다. 대메뉴는 들여쓰기를 줄인 구분 제목이며 선택하지 않습니다. 소메뉴에는 `-`를 붙이고, 위/아래 키로 그룹 경계를 넘어 소메뉴를 바로 선택합니다. 첫 메뉴 Overview에서 위로 이동하면 마지막 Profiles로, 마지막에서 아래로 이동하면 Overview로 순환합니다. j/k도 동일하게 동작합니다. Enter로 진입하고 화면 안에서는 좌/우로 탭을 이동합니다. Esc는 메뉴 선택으로 돌아가며, 메뉴에서 다시 누르면 현재 선택을 유지합니다. 화면별 선택 탭을 유지합니다. Errors는 KAsciiDash의 조회/렌더링 오류이며 Kubernetes Warning 이벤트와 구분합니다.
 
 
 | 키 | 기능 |
@@ -215,7 +215,7 @@ Settings
 
 워크로드 탭 이름과 상태 집계는 상단에 고정됩니다. Pod 탭은 Total/Healthy/Issues, Running/Pending/Failed/Succeeded/Unknown, NotReady/CrashLoopBackOff/Terminating 및 ImagePullBackOff/ErrImagePull/CreateContainerConfigError 수를 표시합니다. Healthy는 Running이면서 현재 이슈가 없는 Pod입니다. phase 집계와 장애 원인 집계는 겹칠 수 있으므로 합산하지 않습니다. 예를 들어 init container가 CrashLoopBackOff인 Pending Pod는 Pending·Issues·CrashLoopBackOff에 각각 포함됩니다. 장애 원인은 Terminating을 우선하고, Succeeded는 정상 완료로 처리한 뒤 init container·일반 컨테이너 순서로 현재 waiting/실패 사유를 검사하고, PodInitializing/ContainerCreating 같은 대기 사유보다 실제 장애 사유를 우선하여 대표 원인 하나를 표시·집계합니다. 성공적으로 완료한 init container는 장애로 세지 않습니다. 컨트롤러 탭은 전체/정상/이슈 객체 수와 desired/ready replica 합계를 표시합니다. 집계 범위는 모든 namespace입니다. 조회 실패 시 N/A를 표시합니다. 아주 작은 화면에서는 상단 집계 일부가 생략될 수 있으므로 140열 x 35행 이상을 권장합니다.
 
-휠 이동량은 `./kuba-dm --scroll-step 10`처럼 조절합니다. `j/k`와 방향키는 한 줄씩 유지합니다. 터미널이 마우스 이벤트를 전달해야 휠 이동이 동작합니다. 앱이 마우스 입력을 활성화하므로 터미널에 따라 텍스트 선택에는 Shift 키가 필요할 수 있습니다.
+휠 이동량은 `./kasciidash --scroll-step 10`처럼 조절합니다. `j/k`와 방향키는 한 줄씩 유지합니다. 터미널이 마우스 이벤트를 전달해야 휠 이동이 동작합니다. 앱이 마우스 입력을 활성화하므로 터미널에 따라 텍스트 선택에는 Shift 키가 필요할 수 있습니다.
 
 기본 30초마다 새 데이터를 수집합니다. 백그라운드 수집 중에는 이전 스냅샷과 메뉴를 계속 표시합니다. Snapshot은 수집 시작 시각이며 여러 API를 조회하므로 값들은 단일 원자적 스냅샷이 아닙니다. 종료 또는 파일 전환 시 진행 중인 조회가 timeout까지 마무리될 수 있습니다.
 
@@ -316,9 +316,9 @@ Logs는 Pod 및 Deployment·ReplicaSet·StatefulSet, API Resources의 DaemonSet�
 
 Pod, Deployment, ReplicaSet, StatefulSet, DaemonSet, Service, ConfigMap, Secret, PVC, Job, Namespace, Ingress 기본 템플릿을 제공합니다. 그 외 API/CRD는 실제 apiVersion·kind·metadata를 넣은 최소 템플릿을 제공하고 `kubectl explain` 명령을 안내합니다. 해당 리소스의 필수 필드를 편집기에서 채워야 합니다. 이미지·selector·호스트·StorageClass, StatefulSet의 headless Service 등은 클러스터에 맞게 조정합니다. 서버 dry-run에서 선택한 타입·이름·namespace를 유지하는지 확인한 뒤 배포합니다.
 
-편집기는 `$VISUAL`, `$EDITOR`, `vi` 순으로 사용합니다. 예: `EDITOR='code --wait' ./kuba-dm`. 편집기가 파일 저장까지 기다리도록 설정해야 합니다. vi에서는 `i`로 수정하고 `Esc` 후 `:wq`로 저장·종료합니다.
+편집기는 `$VISUAL`, `$EDITOR`, `vi` 순으로 사용합니다. 예: `EDITOR='code --wait' ./kasciidash`. 편집기가 파일 저장까지 기다리도록 설정해야 합니다. vi에서는 `i`로 수정하고 `Esc` 후 `:wq`로 저장·종료합니다.
 
-신규 YAML 초안만 `.kuba-dm/<프로필 별명>/<리소스>/<이름>.yaml`에 저장합니다. `<리소스>`는 선택한 API 리소스명(`pods`, `deployments.apps` 등)입니다. 파일은 권한 600, 생성 디렉터리는 700입니다.
+신규 YAML 초안만 `.kasciidash/<프로필 별명>/<리소스>/<이름>.yaml`에 저장합니다. `<리소스>`는 선택한 API 리소스명(`pods`, `deployments.apps` 등)입니다. 파일은 권한 600, 생성 디렉터리는 700입니다.
 
 - `n`: 새 YAML 작성. 같은 이름의 초안이 있으면 덮어쓰지 않고 `D`로 불러오도록 안내합니다.
 - `D`(Shift+d): 현재 프로필·리소스의 저장된 신규 초안 목록을 열고 번호로 선택합니다. 편집 → 미리보기 → 서버 dry-run → `create` 확인을 거쳐 배포합니다. YAML의 namespace를 사용하며 현재 목록에서 선택한 객체의 namespace로 덮어쓰지 않습니다.
@@ -327,7 +327,7 @@ Pod, Deployment, ReplicaSet, StatefulSet, DaemonSet, Service, ConfigMap, Secret,
 
 미리보기·서버 dry-run·diff·제출은 같은 YAML 스냅샷을 사용합니다. 승인 대기 중 외부에서 신규 초안을 변경했다면, 승인한 스냅샷만 제출하고 더 최신 초안은 삭제하지 않습니다. 이미 같은 이름의 객체가 존재할 때 신규 초안을 강제로 덮어쓰지 않도록 신규 배포는 `create`를 사용합니다. 기존 객체 수정은 목록에서 해당 객체를 선택하고 `e`로 진행하세요.
 
-기존 `<리소스>/draft/<hash>.yaml` 신규 초안도 `D` 목록에 표시합니다. 선택하면 객체명을 확인해 새 경로로 옮긴 뒤 이어서 편집합니다. 충돌하는 이름이 있으면 덮어쓰지 않습니다. 과거의 `.kuba-dm/drafts/` 공용 초안과 편집·배포 이력은 프로필을 확정할 수 없어 자동 이동·삭제하지 않습니다.
+기존 `<리소스>/draft/<hash>.yaml` 신규 초안도 `D` 목록에 표시합니다. 선택하면 객체명을 확인해 새 경로로 옮긴 뒤 이어서 편집합니다. 충돌하는 이름이 있으면 덮어쓰지 않습니다. 과거의 `.kasciidash/drafts/` 공용 초안과 편집·배포 이력은 프로필을 확정할 수 없어 자동 이동·삭제하지 않습니다.
 
 별명의 `/` 등 경로 구분 문자는 퍼센트 인코딩하며 `--config` 직접 연결은 `unregistered` 별명을 사용합니다. 별명 변경 시 기존 초안은 이전 별명 디렉터리에 남습니다. 요청한 구조에는 namespace가 없으므로 같은 프로필·리소스·이름의 초안은 namespace별로 동시에 저장할 수 없습니다. Secret 신규 초안에는 민감한 값이 포함될 수 있습니다. 기존 객체 편집은 status·managedFields를 제거하고 resourceVersion은 동시 수정 충돌 감지를 위해 유지합니다.
 
@@ -347,7 +347,7 @@ exec는 별도의 PTY로 stdin/stdout/stderr와 터미널 크기를 전달하고
 
 - `exit` / `Ctrl+D`: 원격 쉘 종료
 - `Ctrl+C`: 현재 원격 명령 인터럽트 또는 접속 중단
-- `Ctrl+]`: KUBA-DM에서 로컬 exec 연결 해제. 원격 명령 종료를 보장하는 키는 아닙니다.
+- `Ctrl+]`: KAsciiDash에서 로컬 exec 연결 해제. 원격 명령 종료를 보장하는 키는 아닙니다.
 
 종료 후 Enter로 대시보드에 돌아갑니다. 쉘 없음, `pods/exec` 권한 거부, API/proxy의 exec 스트림 연결 실패 등은 kubectl 출력을 그대로 확인할 수 있습니다.
 
@@ -371,7 +371,7 @@ exec는 별도의 PTY로 stdin/stdout/stderr와 터미널 크기를 전달하고
 
 대상은 이벤트에 기록된 `apiVersion`, `kind`, 이름, UID로 식별하고 API discovery에서 실제 리소스 이름과 namespace 범위를 확인합니다. CRD와 클러스터 범위 객체도 지원합니다. 이벤트의 resourceVersion은 과거 값일 수 있으므로 현재 객체의 UID로 동일성을 검증합니다. YAML은 검증한 GET 결과를 변환하고, Describe는 조회 전후 UID를 확인합니다. 삭제·권한 거부·같은 이름의 객체 교체가 확인되면 대상 조회/편집을 중단하고 원본 이벤트를 유지합니다. 현재 객체를 다루려면 Resources 목록에서 다시 선택합니다.
 
-**Errors는 KUBA-DM의 수집·렌더링·discovery 오류입니다.** 오류 문자열에서 대상 이름을 추측하지 않습니다. 대상 ObjectReference가 명시된 오류는 `Error Details / Describe / YAML`을 제공하고, 대상 참조나 UID 등 식별 정보가 없으면 원본 오류 상세만 표시합니다. 대상 조회에는 해당 객체의 get 권한, 편집에는 기존 YAML 편집에 필요한 권한이 적용됩니다. `--demo`에서는 합성 조회 화면을 제공하고 편집·배포는 실행하지 않습니다.
+**Errors는 KAsciiDash의 수집·렌더링·discovery 오류입니다.** 오류 문자열에서 대상 이름을 추측하지 않습니다. 대상 ObjectReference가 명시된 오류는 `Error Details / Describe / YAML`을 제공하고, 대상 참조나 UID 등 식별 정보가 없으면 원본 오류 상세만 표시합니다. 대상 조회에는 해당 객체의 get 권한, 편집에는 기존 YAML 편집에 필요한 권한이 적용됩니다. `--demo`에서는 합성 조회 화면을 제공하고 편집·배포는 실행하지 않습니다.
 
 ## 수치의 의미
 
@@ -401,10 +401,10 @@ exec는 별도의 PTY로 stdin/stdout/stderr와 터미널 크기를 전달하고
 
 ```text
 k8s-dashcli/
-├── kuba-dm                 # 기본 실행 스크립트
-├── kuba_dm.py                 # Python 실행 진입점 (호환 유지)
-├── kuba_dm_app/
-│   ├── __main__.py          # python3 -m kuba_dm_app 진입점
+├── kasciidash                 # 기본 실행 스크립트
+├── kasciidash.py                 # Python 실행 진입점 (호환 유지)
+├── kasciidash_app/
+│   ├── __main__.py          # python3 -m kasciidash_app 진입점
 │   ├── ui/
 │   │   └── dashboard.py     # curses 화면, 메뉴, 입력 처리, 데이터 갱신
 │   ├── config/
@@ -418,10 +418,10 @@ k8s-dashcli/
 ├── tests/                   # 단위·회귀 테스트 및 가짜 응답
 ├── docs/                    # 접근 권한 및 kubeconfig 운영 문서
 ├── .kube/                   # 인증 파일 (Git 제외)
-└── .kuba-dm/                  # 프로필·마지막 선택·편집 초안 (Git 제외)
+└── .kasciidash/                  # 프로필·마지막 선택·편집 초안 (Git 제외)
 ```
 
-`./kuba-dm`, `python3 kuba_dm.py`, `python3 -m kuba_dm_app` 모두 동일한 대시보드를 실행합니다. `kuba_dm_app` 패키지와 실행 파일을 함께 배치해야 합니다. 실행한 디렉터리와 관계없이 프로젝트 루트의 `.kube`와 `.kuba-dm`를 사용합니다. 내부 모듈을 직접 실행하지 마세요.
+`./kasciidash`, `python3 kasciidash.py`, `python3 -m kasciidash_app` 모두 동일한 대시보드를 실행합니다. `kasciidash_app` 패키지와 실행 파일을 함께 배치해야 합니다. 실행한 디렉터리와 관계없이 프로젝트 루트의 `.kube`와 `.kasciidash`를 사용합니다. 내부 모듈을 직접 실행하지 마세요.
 
 ## 개발 검증
 
@@ -492,7 +492,7 @@ kubectl api-resources --verbs=list --namespaced=false --cached=false -o name
 - `t`: 조회 구간 5분 → 15분 → 1시간. `p`: 자동 조회 일시정지/재개. 진행 중인 조회는 완료될 수 있습니다.
 - `r`: 즉시 갱신. 일시정지 중에도 수동 조회합니다. `u/d`, 마우스 휠: 아래의 차트·상위 20개 표 스크롤.
 - `/`: 탭별 복합 필터 입력, `x`: 초기화. `cluster`는 대소문자를 구분하는 **정확 일치**입니다. 예: `cluster=prod`는 `prod-east`에 매칭되지 않습니다. 나머지 필터는 정규식이 아닌 부분 문자열입니다. node 필터는 노드명/IP에서 검색하며 나머지 필터는 대소문자를 구분합니다. 특정 노드/namespace를 선택하면 그래프도 해당 범위로 좁혀집니다.
-- `./kuba-dm --metrics-interval 2`: 조회 완료 후 2초 간격으로 다시 조회. 차트 해상도는 5분=5초, 15분=15초, 1시간=60초이며 실제 원본 정밀도는 Prometheus scrape 주기에 좌우됩니다. CPU·I/O 등의 rate는 직전 2분 평균입니다.
+- `./kasciidash --metrics-interval 2`: 조회 완료 후 2초 간격으로 다시 조회. 차트 해상도는 5분=5초, 15분=15초, 1시간=60초이며 실제 원본 정밀도는 Prometheus scrape 주기에 좌우됩니다. CPU·I/O 등의 rate는 직전 2분 평균입니다.
 
 차트와 지표별 표는 터미널 폭에 맞춰 여러 열로 자동 배치합니다. 넓어지면 한 줄에 더 많이 표시하고, 좁아지면 다음 줄로 넘깁니다. 표는 배정된 칸의 너비를 채우며, 긴 Pod 이름이 있는 Workload Health 표는 더 넓은 최소 폭을 사용합니다. 창 크기를 바꾸면 즉시 재배치합니다.
 
@@ -512,7 +512,7 @@ Service별 관측에는 추가 수집원이 필요합니다. 현재 자동 지�
 
 ## 클러스터 프로필과 Prometheus 설정
 
-프로필은 `.kuba-dm/profiles.json`에 관리합니다. 예시 구조:
+프로필은 `.kasciidash/profiles.json`에 관리합니다. 예시 구조:
 
 ```json
 {
@@ -525,7 +525,7 @@ Service별 관측에는 추가 수집원이 필요합니다. 현재 자동 지�
       "context": "production-admin",
       "prometheus": {
         "endpoint": "https://prometheus.example.com",
-        "token_env": "KUBA_DM_PROD_PROM_TOKEN",
+        "token_env": "KASCIIDASH_PROD_PROM_TOKEN",
         "username": "",
         "password_env": "",
         "ca_file": "",
@@ -536,11 +536,11 @@ Service별 관측에는 추가 수집원이 필요합니다. 현재 자동 지�
 }
 ```
 
-`.kuba-dm/`는 gitignore 대상입니다. JSON과 가져온 kubeconfig는 파일 권한 600으로 저장하며 JSON은 임시 파일을 통한 교체로 저장합니다. 여러 실행에서 동시에 설정을 수정한 경우 뒤의 저장을 거부해 앞의 변경을 보존합니다. 잘못된 JSON은 자동 초기화하지 않고 오류를 알립니다.
+`.kasciidash/`는 gitignore 대상입니다. JSON과 가져온 kubeconfig는 파일 권한 600으로 저장하며 JSON은 임시 파일을 통한 교체로 저장합니다. 여러 실행에서 동시에 설정을 수정한 경우 뒤의 저장을 거부해 앞의 변경을 보존합니다. 잘못된 JSON은 자동 초기화하지 않고 오류를 알립니다.
 
 Profiles 목록에는 별명과 `CONF FILE`(conf 파일명)을 표시합니다. context는 파일명이 아니라 conf 안의 클러스터·계정·기본 namespace를 묶은 접속 설정 이름입니다. 접속 설정이 하나이면 자동으로 사용하고, 여러 개이며 기본값이 없으면 클러스터·계정·API 주소를 보고 번호를 선택합니다.
 
-Profiles 화면에서 `a`는 파일 경로로 등록, `v`는 경로와 연결 설정 상세 조회, `e`는 별명 변경, `p`는 Prometheus 설정, `d`는 등록 삭제입니다. 번호 입력은 해당 프로필로 연결합니다. Enter는 현재 프로필로 돌아가며 현재 프로필이 삭제됐다면 첫 프로필을 선택합니다. `q`는 종료합니다. `e`는 접속 설정을 묻거나 클러스터에 조회하지 않습니다. 같은 conf 안의 다른 접속 설정을 선택하려면 고급 옵션 `k`를 사용합니다. 접속 설정을 바꾸면 기존 Prometheus 연결은 해제됩니다. 프로필 목록의 `*`는 현재 선택을 뜻합니다. 대시보드를 열 때 선택한 프로필 ID를 `.kuba-dm/profiles.json`의 `last_profile_id`에 저장하므로 종료 후에도 유지됩니다. 별명을 변경해도 선택은 유지됩니다. `--demo`, `--config`, `--once` 실행은 마지막 선택을 변경하지 않습니다. 연결 설정을 읽지 못하면 Profiles 관리 화면으로 안내합니다. `--profile <alias 또는 ID>`로 시작 프로필을 지정할 수 있습니다.
+Profiles 화면에서 `a`는 파일 경로로 등록, `v`는 경로와 연결 설정 상세 조회, `e`는 별명 변경, `p`는 Prometheus 설정, `d`는 등록 삭제입니다. 번호 입력은 해당 프로필로 연결합니다. Enter는 현재 프로필로 돌아가며 현재 프로필이 삭제됐다면 첫 프로필을 선택합니다. `q`는 종료합니다. `e`는 접속 설정을 묻거나 클러스터에 조회하지 않습니다. 같은 conf 안의 다른 접속 설정을 선택하려면 고급 옵션 `k`를 사용합니다. 접속 설정을 바꾸면 기존 Prometheus 연결은 해제됩니다. 프로필 목록의 `*`는 현재 선택을 뜻합니다. 대시보드를 열 때 선택한 프로필 ID를 `.kasciidash/profiles.json`의 `last_profile_id`에 저장하므로 종료 후에도 유지됩니다. 별명을 변경해도 선택은 유지됩니다. `--demo`, `--config`, `--once` 실행은 마지막 선택을 변경하지 않습니다. 연결 설정을 읽지 못하면 Profiles 관리 화면으로 안내합니다. `--profile <alias 또는 ID>`로 시작 프로필을 지정할 수 있습니다.
 
 삭제는 JSON 등록만 제거하고 kubeconfig 파일은 보존합니다. 초기 파일 자동 등록은 JSON이 없을 때 한 번만 수행하므로 삭제한 프로필이 다음 실행에서 다시 나타나지 않습니다. 나중에 `.kube`에 추가한 파일은 `a`에서 해당 경로를 입력해 등록합니다. 가져오기는 새 파일명으로 저장하므로 기존 파일을 덮어쓰지 않습니다.
 
@@ -552,7 +552,7 @@ Prometheus 설정에서는 다음을 지원합니다.
 - `t`: 저장된 설정으로 다시 연결 확인.
 - `x`: 해당 프로필의 Prometheus 연결 설정 해제.
 
-연결 주소는 선택 결과로 자동 생성합니다. Enter로 API 연결 확인 후 저장하며, 기본 흐름에서는 IP/URL·인증·CA 파일을 입력하지 않습니다. 인증이 필요한 경우에만 `a`에서 고급 인증을 설정하고, `h`로 HTTP/HTTPS를 전환합니다. 새 주소로 바꾸면 기존 주소의 인증 정보를 자동 전달하지 않습니다. 입력 중 Esc는 Enter 없이 즉시 취소하며 Backspace와 Ctrl+U도 지원합니다. 직접 URL 입력은 `u`의 보조 기능이며 scheme과 port를 포함한 완전한 URL(예: `http://10.10.12.135:30900`)을 입력합니다. 잘못된 URL은 인증 단계로 진행하지 않고 Service 목록으로 돌아갑니다. ClusterIP 주소는 일반적으로 클러스터 내부용이므로 KUBA-DM 실행 컴퓨터에서의 라우팅 여부에 따라 연결되지 않을 수 있습니다. Service 조회 권한이 없어도 URL 직접 입력은 가능합니다. 이 기능은 Service를 생성하거나 NodePort로 변경하지 않습니다.
+연결 주소는 선택 결과로 자동 생성합니다. Enter로 API 연결 확인 후 저장하며, 기본 흐름에서는 IP/URL·인증·CA 파일을 입력하지 않습니다. 인증이 필요한 경우에만 `a`에서 고급 인증을 설정하고, `h`로 HTTP/HTTPS를 전환합니다. 새 주소로 바꾸면 기존 주소의 인증 정보를 자동 전달하지 않습니다. 입력 중 Esc는 Enter 없이 즉시 취소하며 Backspace와 Ctrl+U도 지원합니다. 직접 URL 입력은 `u`의 보조 기능이며 scheme과 port를 포함한 완전한 URL(예: `http://10.10.12.135:30900`)을 입력합니다. 잘못된 URL은 인증 단계로 진행하지 않고 Service 목록으로 돌아갑니다. ClusterIP 주소는 일반적으로 클러스터 내부용이므로 KAsciiDash 실행 컴퓨터에서의 라우팅 여부에 따라 연결되지 않을 수 있습니다. Service 조회 권한이 없어도 URL 직접 입력은 가능합니다. 이 기능은 Service를 생성하거나 NodePort로 변경하지 않습니다.
 
 연결 테스트는 `/api/v1/query?query=vector(1)` 응답 형식을 확인하고 성공한 설정만 저장합니다. URL 리다이렉트는 자동으로 따라가지 않으므로 최종 API base URL을 입력합니다. 이 테스트는 API 접근 확인이며 노드/컨테이너 지표 수집 여부나 대상 클러스터 일치 여부를 보증하지 않습니다. Monitoring은 지표별 수집 상태와 cluster 라벨을 추가로 확인합니다.
 
@@ -564,7 +564,7 @@ Prometheus 설정에서는 다음을 지원합니다.
 
 `Clusters → Namespaces` 목록 또는 상세 화면에서 `n`을 누르면 Namespace YAML을 새로 작성합니다. 이름 입력 → 기본 템플릿 편집 → 미리보기 및 서버 dry-run → `create` 입력으로 생성합니다. Namespace는 클러스터 범위이므로 namespace 입력은 묻지 않습니다. 목록이 비어 있어도 생성할 수 있으며, 생성 후 목록을 다시 조회합니다. 생성 권한이 필요하고 취소하면 초안만 남습니다.
 
-초안은 `.kuba-dm/<프로필 별명>/namespaces/<이름>.yaml`에 저장합니다. `D`로 불러와 이어서 작업할 수 있으며, 생성 성공 시 삭제합니다.
+초안은 `.kasciidash/<프로필 별명>/namespaces/<이름>.yaml`에 저장합니다. `D`로 불러와 이어서 작업할 수 있으며, 생성 성공 시 삭제합니다.
 
 ### Warnings / Errors 필터
 
@@ -578,4 +578,4 @@ reason="Failed Scheduling"
 
 `namespace`(`ns`), `object`(`obj`), `reason`을 지원합니다. 여러 조건은 AND이며 대소문자를 구분하지 않는 부분 일치 검색입니다. 공백을 포함한 값은 따옴표로 감쌉니다. `Enter`는 적용, 입력 중 `Esc`는 취소, 목록에서 `x`는 초기화입니다. 메뉴별 필터를 별도로 유지하며 Total과 Matches를 표시합니다. 상세 화면에서는 필터를 입력하지 않고 `Esc`로 목록으로 돌아와 사용합니다.
 
-Warnings는 이벤트의 namespace·대상 kind/name·reason을 검색합니다. Errors는 Kubernetes Error 이벤트가 아니라 KUBA-DM 수집 오류입니다. 오류에 대상 reference가 있을 때 namespace·object를 검색할 수 있고, 대상 정보가 없으면 해당 항목은 `-`로 표시합니다. reason이 별도로 없으면 오류 메시지를 reason 검색에 사용합니다. 대상 정보가 없는 오류도 `reason=Forbidden` 또는 `reason=timeout`으로 찾을 수 있습니다.
+Warnings는 이벤트의 namespace·대상 kind/name·reason을 검색합니다. Errors는 Kubernetes Error 이벤트가 아니라 KAsciiDash 수집 오류입니다. 오류에 대상 reference가 있을 때 namespace·object를 검색할 수 있고, 대상 정보가 없으면 해당 항목은 `-`로 표시합니다. reason이 별도로 없으면 오류 메시지를 reason 검색에 사용합니다. 대상 정보가 없는 오류도 `reason=Forbidden` 또는 `reason=timeout`으로 찾을 수 있습니다.

@@ -10,10 +10,10 @@ import subprocess
 import tempfile
 from urllib.parse import quote
 
-from kuba_dm_app.config import profiles
-from kuba_dm_app.resources import resource_detail as detail
-from kuba_dm_app.resources import event_resources
-from kuba_dm_app.terminal import exec_session as terminal_exec
+from kasciidash_app.config import profiles
+from kasciidash_app.resources import resource_detail as detail
+from kasciidash_app.resources import event_resources
+from kasciidash_app.terminal import exec_session as terminal_exec
 SCALE = {'deployments', 'deployments.apps', 'statefulsets', 'statefulsets.apps', 'replicasets', 'replicasets.apps'}
 RESTART = {'deployments', 'deployments.apps', 'statefulsets', 'statefulsets.apps', 'daemonsets', 'daemonsets.apps'}
 TEMPLATES = ('Pod', 'ReplicaSet', 'StatefulSet', 'DaemonSet', 'Deployment', 'Service', 'ConfigMap', 'Secret', 'PersistentVolumeClaim', 'Job', 'Namespace', 'Ingress')
@@ -238,7 +238,7 @@ def yaml_component(value):
 
 
 def yaml_directory(base, profile_alias, resource):
-    root = Path(base) / '.kuba-dm'
+    root = Path(base) / '.kasciidash'
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     path = root
     for value in (profile_alias, resource):
@@ -285,7 +285,7 @@ def saved_drafts(client, base, item, profile_alias='unregistered'):
 def edit_yaml(client, base, item, new=False, profile_alias='unregistered', draft_path=None):
     # Existing resource edits are disposable, including cancellation and errors.
     if not new:
-        with tempfile.TemporaryDirectory(prefix='kuba-dm-edit-') as directory:
+        with tempfile.TemporaryDirectory(prefix='kasciidash-edit-') as directory:
             return _edit_yaml(client, base, item, new, profile_alias,
                               Path(directory) / 'edit.yaml')
     return _edit_yaml(client, base, item, new, profile_alias, draft_path)
@@ -474,7 +474,7 @@ def exec_command(client, item):
     if container not in still_running:
         raise ValueError('The selected container is no longer running. Refresh and choose a running container.')
     profiles.clear()
-    print('KUBA-DM | CONTAINER TERMINAL')
+    print('KAsciiDash | CONTAINER TERMINAL')
     print('Namespace: %s\nPod: %s\nContainer: %s' % tuple(safe(v) for v in (namespace, pod, container)))
     print('Command: ' + safe(shlex.join(argv)))
     print('Exit: exit or Ctrl+D | Interrupt: Ctrl+C | Disconnect: Ctrl+]')
@@ -489,7 +489,7 @@ def exec_command(client, item):
 
 def perform(client, base, info, action, item):
     profiles.clear()
-    print('KUBA-DM | Resource operations')
+    print('KAsciiDash | Resource operations')
     print('Profile: %s | Cluster: %s | API: %s' % tuple(safe(info.get(k, '-')) for k in ('alias', 'cluster', 'server')))
     try:
         if item and item.get('event_context'):
@@ -515,7 +515,7 @@ def perform(client, base, info, action, item):
     except (profiles.InputCancelled, EOFError, KeyboardInterrupt):
         return
     except (ValueError, OSError, TypeError, AttributeError, KeyError, subprocess.TimeoutExpired) as exc:
-        print('KUBA-DM: ' + safe(exc))
+        print('KAsciiDash: ' + safe(exc))
     try:
         profiles.prompt('\nEnter to return to dashboard: ')
     except (profiles.InputCancelled, EOFError, KeyboardInterrupt):

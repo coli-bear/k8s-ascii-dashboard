@@ -1,1 +1,1 @@
-"""KUBA-DM regression tests."""
+"""KAsciiDash regression tests."""

@@ -5,9 +5,9 @@ import datetime as dt
 import re
 import textwrap
 
-from kuba_dm_app.resources import resource_views as rv
-from kuba_dm_app.topology import namespace_topology
-from kuba_dm_app.topology import workload_topology
+from kasciidash_app.resources import resource_views as rv
+from kasciidash_app.topology import namespace_topology
+from kasciidash_app.topology import workload_topology
 MODES = ('overview', 'resources', 'treeview', 'topology')
 COMMON = ('pods', 'deployments.apps', 'replicasets.apps', 'statefulsets.apps',
           'daemonsets.apps', 'jobs.batch', 'cronjobs.batch', 'services',

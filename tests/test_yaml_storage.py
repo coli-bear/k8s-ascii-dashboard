@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from kuba_dm_app.resources import resource_actions as actions
+from kasciidash_app.resources import resource_actions as actions
 from tests.test_resource_actions import client, obj, selected
 
 
@@ -44,10 +44,10 @@ class YamlStorageTests(unittest.TestCase):
                                 actions.edit_yaml(c, folder, selected(), new=new, profile_alias='prod/team')
                         else:
                             actions.edit_yaml(c, folder, selected(), new=new, profile_alias='prod/team')
-                    stored = list((Path(folder) / '.kuba-dm').rglob('*.yaml'))
+                    stored = list((Path(folder) / '.kasciidash').rglob('*.yaml'))
                     self.assertEqual(len(stored), int(new and outcome != 'success'))
                     if stored:
-                        self.assertEqual(stored[0], Path(folder) / '.kuba-dm/prod%2Fteam/deployments.apps/web.yaml')
+                        self.assertEqual(stored[0], Path(folder) / '.kasciidash/prod%2Fteam/deployments.apps/web.yaml')
                     if not new and paths: self.assertFalse(paths[0].exists())
 
     def test_resume_and_successful_deletion(self):

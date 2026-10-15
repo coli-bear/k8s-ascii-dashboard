@@ -1,6 +1,6 @@
 import unittest
-from kuba_dm_app.ui import dashboard as kuba_dm
-from kuba_dm_app.monitoring import prometheus as m
+from kasciidash_app.ui import dashboard as kasciidash
+from kasciidash_app.monitoring import prometheus as m
 def snapshot():
     cards = []
     for i, title in enumerate(('CPU used', 'Memory used', 'Disk read', 'Disk write', 'Disk read IOPS', 'Disk write IOPS', 'Host network RX', 'Host network TX')):
@@ -12,11 +12,11 @@ def snapshot():
 
 class ResponsiveMonitoringTests(unittest.TestCase):
     def test_wide_tables_share_a_row_and_narrow_tables_stack(self):
-        data = dict(kuba_dm.demo(), prometheus={'endpoint': 'http://test'}, monitoring=snapshot())
-        wide = m.render(data, 0, 300, kuba_dm.ascii_table)
+        data = dict(kasciidash.demo(), prometheus={'endpoint': 'http://test'}, monitoring=snapshot())
+        wide = m.render(data, 0, 300, kasciidash.ascii_table)
         tables = wide[wide.index('METRIC TABLES')+1:]
         self.assertTrue(any(all(title in line for title in ('CPU USED', 'MEMORY USED', 'DISK READ', 'DISK WRITE')) for line in tables))
-        narrow = m.render(data, 0, 60, kuba_dm.ascii_table)
+        narrow = m.render(data, 0, 60, kasciidash.ascii_table)
         tables_narrow = narrow[narrow.index('METRIC TABLES')+1:]
         self.assertFalse(any('CPU USED' in line and 'MEMORY USED' in line for line in tables_narrow))
         for card in data['monitoring']['cards']:
@@ -33,15 +33,15 @@ class ResponsiveMonitoringTests(unittest.TestCase):
         self.assertTrue(all(len(line) <= 32 for line in lines))
 
     def test_all_tabs_width_boundaries_and_stretched_borders(self):
-        data = dict(kuba_dm.demo(), prometheus={'endpoint': 'http://test'}, monitoring=snapshot())
+        data = dict(kasciidash.demo(), prometheus={'endpoint': 'http://test'}, monitoring=snapshot())
         for tab in range(4):
             for width in (40, 60, 83, 84, 85, 99, 100, 129, 130, 150, 200, 300, 420):
-                body = m.render(data, tab, width, kuba_dm.ascii_table)
+                body = m.render(data, tab, width, kasciidash.ascii_table)
                 start = body.index('METRIC TABLES')
                 self.assertTrue(all(len(line) <= width for line in body[start:]))
-                lines, *_ = kuba_dm.layout(data, 'm', width, height=40, monitoring_tab=tab)
+                lines, *_ = kasciidash.layout(data, 'm', width, height=40, monitoring_tab=tab)
                 self.assertTrue(all(len(line) == width and line.isascii() for line in lines))
-        table = kuba_dm.ascii_table(['NODE', 'CORES'], [['n1', '0.1']], 60, stretch=True)
+        table = kasciidash.ascii_table(['NODE', 'CORES'], [['n1', '0.1']], 60, stretch=True)
         self.assertTrue(all(len(line) == 60 for line in table))
 
 

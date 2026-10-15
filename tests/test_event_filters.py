@@ -3,12 +3,12 @@ from concurrent.futures import Future
 import unittest
 from unittest.mock import patch
 
-from kuba_dm_app.ui import dashboard as kuba_dm
-from kuba_dm_app.resources import event_views as events
+from kasciidash_app.ui import dashboard as kasciidash
+from kasciidash_app.resources import event_views as events
 
 
 def data_set():
-    data = kuba_dm.demo()
+    data = kasciidash.demo()
     data['events'] = [dict(type='Warning', metadata=dict(uid=uid, namespace=ns),
                            involvedObject=dict(kind='Pod', name=name, namespace=ns), reason=reason,
                            message='fixture', lastTimestamp='2026-10-15T00:00:00Z')
@@ -63,13 +63,13 @@ class EventFilterTests(unittest.TestCase):
                     def addnstr(self, *args): pass
                     def refresh(self): pass
                     def getch(self): return next(keys)
-                snapshots = []; original = kuba_dm.layout
+                snapshots = []; original = kasciidash.layout
                 def layout(data, *args, **kw):
                     if args[0] == view:
                         snapshots.append(copy.deepcopy(data))
                     return original(data, *args, **kw)
-                with patch.object(kuba_dm.concurrent.futures, 'ThreadPoolExecutor', Pool), patch.object(kuba_dm, 'layout', layout), patch.object(kuba_dm.curses, 'curs_set'), patch.object(kuba_dm.curses, 'set_escdelay', create=True), patch.object(kuba_dm.curses, 'mousemask'), patch.object(kuba_dm.curses, 'mouseinterval'), patch.object(kuba_dm.sys, 'stdout'):
-                    self.assertEqual(kuba_dm.screen(Terminal(), data_set, 30), 'quit')
+                with patch.object(kasciidash.concurrent.futures, 'ThreadPoolExecutor', Pool), patch.object(kasciidash, 'layout', layout), patch.object(kasciidash.curses, 'curs_set'), patch.object(kasciidash.curses, 'set_escdelay', create=True), patch.object(kasciidash.curses, 'mousemask'), patch.object(kasciidash.curses, 'mouseinterval'), patch.object(kasciidash.sys, 'stdout'):
+                    self.assertEqual(kasciidash.screen(Terminal(), data_set, 30), 'quit')
                 filtered = [d for d in snapshots if d['event_filters'][view]]
                 self.assertTrue(filtered)
                 self.assertTrue(all(len(events.records(d, view)) == 1 for d in filtered))
