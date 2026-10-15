@@ -4,6 +4,12 @@ An ASCII terminal console for Kubernetes operations.
 
 macOS·Ubuntu·Rocky Linux에서 사용할 수 있는 Python3 ASCII Kubernetes 운영 대시보드. 상단 연결 정보, 왼쪽 고정 메뉴, 중앙 요약 카드와 노드 자원 패널로 구성합니다. 기본 조회와 명시적으로 확인하는 운영 작업을 지원하며 kubeconfig의 current-context는 변경하지 않습니다.
 
+## 문서
+
+- [운영 가이드](docs/operations.md): 상태 확인, YAML 초안 재개, 변경 후 확인, 문제 해결과 설정 보관
+- [kubeconfig와 권한 관리](docs/kubeconfig-access.md): 계정 발급, 인증 갱신, 권한 회수
+- [개발 가이드](docs/development.md): 코드 위치, 테스트 실행과 회귀 검증 기준
+
 ## 빠른 시작
 
 Python **3.9 이상**과 `kubectl`이 PATH에 있어야 합니다. Python 표준 라이브러리만 사용하므로 pip 패키지는 필요하지 않습니다. curses를 지원하는 일반 터미널 또는 SSH 터미널에서 실행합니다. Linux는 코드상 호환되지만 실제 Ubuntu·Rocky 환경에서의 실행 검증은 아직 수행하지 않았습니다.

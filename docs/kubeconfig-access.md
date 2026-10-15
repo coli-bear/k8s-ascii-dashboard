@@ -303,7 +303,7 @@ kubectl --kubeconfig "$KASCIIDASH_CHECK_CONFIG" auth can-i --list
 5. alias를 입력합니다. context는 파일 안의 클러스터·사용자·기본 namespace 조합이며 파일명이 아닙니다.
 6. 등록한 프로필 번호를 선택해 접속합니다.
 
-`.kasciidash/profiles.json`이 없는 최초 실행은 `.kube/*.conf`를 파일명 순서로 자동 등록하고 **기존 파일 자체를 직접 참조**합니다. 별도 사본은 만들지 않습니다. 이후에는 JSON에 저장된 프로필을 사용하며, 추가 파일은 `a`로 등록합니다. 별도 선택이 없으면 첫 프로필에 연결합니다.
+`.kasciidash/profiles.json`이 없는 최초 실행은 `.kube/*.conf`를 파일명 순서로 자동 등록하고 **기존 파일 자체를 직접 참조**합니다. 별도 사본은 만들지 않습니다. 이후에는 JSON에 저장된 프로필을 사용하며, 추가 파일은 `a`로 등록합니다. 별도 선택이 없으면 마지막으로 연 프로필에 연결합니다. 저장된 선택이 없거나 해당 프로필이 삭제됐다면 첫 프로필을 사용합니다. `--profile <alias 또는 ID>`로 시작 프로필을 지정할 수 있습니다.
 
 `a`에서 아직 등록되지 않은 경로를 가져오면 `.kube/<이름>-<식별자>.conf`에 인증서를 포함한 별도 사본을 저장합니다. **이 가져오기 방식에서는 외부 원본을 갱신해도 관리 사본은 바뀌지 않습니다.** 입력 경로가 이미 등록된 `.kube` 파일 자체이면 기존 프로필을 반환하고 alias 입력이나 새 복사를 진행하지 않습니다. 외부 원본 경로는 관리 사본과 다르므로 같은 외부 경로도 다른 alias로 다시 가져올 수 있습니다.
 
@@ -328,7 +328,7 @@ kubectl --kubeconfig "$KASCIIDASH_CHECK_CONFIG" auth can-i --list
 - Pod/워크로드 생성과 exec도 namespace의 Secret·서비스 계정 등에 접근할 수 있는 강한 권한입니다. namespace와 admission 정책을 함께 관리합니다. [RBAC 권한 설계 지침](https://kubernetes.io/docs/concepts/security/rbac-good-practices/)
 - kubeconfig는 인증 토큰이나 개인키를 포함할 수 있습니다. 파일은 권한 600, 저장 디렉토리는 제한된 사용자만 접근하게 유지합니다. 실제 파일을 GitHub·메신저·이슈·실행 로그에 올리지 않습니다.
 - `.gitignore`는 이미 추적 중인 파일이나 과거 커밋을 지우지 않습니다. 유출되었다면 저장소에서 파일을 제거하는 것과 별도로 해당 자격 증명을 회수·재발급합니다.
-- `.kasciidash/drafts`의 Secret YAML, ConfigMap, exec/logs 출력도 민감 정보가 될 수 있습니다. 초안은 자동 삭제되지 않습니다.
+- 신규 YAML 초안은 `.kasciidash/<프로필 별명>/<리소스>/<이름>.yaml`에 저장합니다. Secret·ConfigMap 초안과 exec/logs 출력에는 민감 정보가 포함될 수 있습니다. 신규 초안은 배포 성공 시 삭제하고 취소·실패 시 보존합니다. 승인 대기 중 외부에서 변경된 초안은 삭제하지 않습니다. 기존 객체 편집은 종료 시 임시 파일을 정리합니다. 저장된 신규 초안은 리소스 화면의 `D`로 다시 불러올 수 있습니다. [README](../README.md)
 - `cluster-admin`이라도 admission 정책과 별도 보안 통제로 작업이 거부될 수 있습니다. 운영 전 대상 클러스터·namespace·객체를 확인합니다.
 
 ### 전체 운영 권한만 회수
