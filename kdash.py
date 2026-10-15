@@ -364,11 +364,11 @@ def filter_label(filters):
 
 def workload_header(data, kind, width, filters=None):
     labels = ('Pods', 'Deployments', 'ReplicaSets', 'StatefulSets')
-    tabs = '  '.join(('[' + label + ']' if k == kind else label) for k, label in zip(WORKLOAD_KINDS, labels))
+    tabs = 'Tabs: ' + ' | '.join(('[' + label + ']' if k == kind else label) for k, label in zip(WORKLOAD_KINDS, labels))
     filtered = filtered_workloads(data, kind, filters)
     matched = 'N/A' if filtered[kind] is None else len(filtered[kind])
     total = 'N/A' if data[kind] is None else len(data[kind])
-    lines = [tabs, 'Left/Right: change tab | /: filter | x: clear | Esc: navigation',
+    lines = [tabs, 'Keys: Left/Right: change tab | /: filter | x: clear | Esc: navigation',
              'Filter: ' + filter_label(filters), 'Matches: %s / Total: %s' % (matched, total), '-' * width, 'STATUS SUMMARY'] + workload_summary(filtered, kind) + ['-' * width, kind.upper() + ' LIST']
     return [chunk for line in lines for chunk in textwrap.wrap(clean(line), width) or ['']]
 
@@ -419,8 +419,8 @@ MONITORING_TABS = [
 def dashboard_tabs(view, width, monitoring_tab=0):
     labels = [label for label, _ in MONITORING_TABS] if view == 'm' else ['Summary', 'Nodes']
     selected = monitoring_tab if view == 'm' else int(view == '2')
-    lines = ['  '.join('[' + label + ']' if i == selected else label for i, label in enumerate(labels)),
-             'Left/Right: change tab | Esc: submenu', '-' * width]
+    lines = ['Tabs: ' + ' | '.join('[' + label + ']' if i == selected else label for i, label in enumerate(labels)),
+             'Keys: Left/Right: change tab | Esc: submenu', '-' * width]
     return [chunk for line in lines for chunk in textwrap.wrap(line, width) or ['']]
 
 
@@ -486,11 +486,11 @@ def resource_lines(data, resource, width, filters=None):
 def resource_header(data, view, width, category_tab=0, api_resource=None, catalog_query='', catalog_index=0, filters=None):
     resource = active_resource(view, category_tab, api_resource)
     if view in rv.CATEGORIES:
-        tabs = '  '.join('[' + label + ']' if index == category_tab else label for index, (label, _, _) in enumerate(rv.CATEGORIES[view]))
-        lines = [tabs, 'Left/Right: change tab | Esc: navigation', '-' * width]
+        tabs = 'Tabs: ' + ' | '.join('[' + label + ']' if index == category_tab else label for index, (label, _, _) in enumerate(rv.CATEGORIES[view]))
+        lines = [tabs, 'Keys: Left/Right: change tab | Esc: navigation', '-' * width]
     else:
         lines = ['API RESOURCES | ' + ('RESOURCE LIST' if resource else 'DISCOVERY'),
-                 'Esc: resource catalog' if resource else 'Up/Down: select | Enter: list | n: new selected resource | /: search | x: clear', '-' * width]
+                 'Keys: Esc: resource catalog' if resource else 'Keys: Up/Down: select | Enter: list | n: new selected resource | /: search | x: clear', '-' * width]
     if resource:
         objects = rv.field(data, 'extras', {}).get(resource['name'])
         count = 'N/A' if objects is None else str(len(objects))
@@ -500,7 +500,7 @@ def resource_header(data, view, width, category_tab=0, api_resource=None, catalo
         except (TypeError, ValueError, AttributeError, KeyError):
             matched = 'N/A'
         lines += ['Resource: ' + resource['name'],
-                  '/: filter name=... ns=... status=... | x: clear',
+                  'Search keys: /: filter name=... ns=... status=... | x: clear',
                   'Filter: ' + filter_label(filters or {}),
                   'Scope: %s | Matches: %s / Total: %s' %
                   ('All namespaces' if resource['namespaced'] else 'Cluster', matched, count)]
@@ -546,7 +546,7 @@ def terminal_action(stdscr, callback):
 
 def content_lines(data, view, width, workload_kind='pods', filters=None, category_tab=0, api_resource=None, catalog_query='', catalog_index=0, monitoring_tab=0):
     output = []
-    if data.get('resource_detail') and (rv.menu_group(view) == 'Resources' or view in ('N', 'Z')):
+    if data.get('resource_detail') and (rv.menu_group(view) == 'Resources' or view in ('N', 'Z', '4', '5')):
         source = resource_detail.content(data['resource_detail'], width, clean, ascii_table)
     elif view == 's':
         source = ['CLUSTER PROFILES', '', 'Enter Settings / Profiles to register, edit, remove or select a profile.',
@@ -620,9 +620,9 @@ def layout(data, view='1', width=120, offset=0, height=None, content=None, workl
         elif view == 'Z':
             pinned = namespace_views.header(data, inner, filters, clean)
         elif data.get('resource_state') is not None:
-            pinned += [part for part in textwrap.wrap('Up/Down: select | Enter: YAML/Describe/Logs | n: new YAML', inner)]
+            pinned += [part for part in textwrap.wrap('Keys: Up/Down: select | Enter: YAML/Describe/Logs | n: new YAML', inner)]
     if view in ('4', '5'):
-        pinned = event_views.header(data, view, inner, clean)
+        pinned = resource_detail.header(data['resource_detail'], inner, clean) if data.get('resource_detail') else event_views.header(data, view, inner, clean)
     if height:
         pinned = pinned[:max(0, height - len(header) - 8)]
     available = max(1, height - len(header) - 7 - len(pinned)) if height else max(len(content), len(sidebar))
@@ -677,7 +677,7 @@ def demo():
         'metrics': [{'metadata': {'name': 'worker-01'}, 'usage': {'cpu': '1250m', 'memory': '6Gi'}}],
         'disk': {'worker-01': {'usedBytes': 20 * 1024 ** 3, 'capacityBytes': 100 * 1024 ** 3}},
         'events': [{'type': 'Warning', 'reason': 'FailedScheduling', 'message': 'Insufficient cpu', 'count': 3,
-                    'involvedObject': {'namespace': 'demo', 'name': 'batch-pending'}}]}
+                    'involvedObject': {'apiVersion': 'v1', 'kind': 'Pod', 'namespace': 'demo', 'name': 'batch-pending', 'uid': 'demo-pending'}}]}
 
 
 def wheel_direction(stdscr, key):
@@ -907,6 +907,8 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                         footer = 'DETAIL: Left/Right tabs | Esc list | e edit | n new | a actions | r reload | u/d page'
                         if detail_browser.item['resource'] in resource_detail.LOG_RESOURCES:
                             footer += ' | ! exec'
+                    if detail_browser.item and detail_browser.item.get('event_context') and focus == 'content':
+                        footer = 'EVENT: Left/Right tabs | Esc list | u/d page | r refresh' + (' | e edit target YAML' if not detail_browser.item.get('read_only') else ' | target unavailable')
                     elif is_resource_list and focus == 'content':
                         footer = 'RESOURCES: Up/Down select | Enter details | Left/Right tabs | / filter | n new | Esc menu | q quit'
                     if view == 'Z' and focus == 'content':
@@ -953,6 +955,21 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                 elif 32 <= key <= 126 and len(draft) < 512:
                     draft += chr(key)
                 continue
+            if focus == 'content' and view in ('4', '5') and detail_browser.item:
+                if key == ord('e'):
+                    if not detail_browser.item.get('read_only') and action_handler:
+                        event_target = dict(detail_browser.item)
+                        terminal_action(stdscr, lambda: action_handler('edit', event_target))
+                        detail_browser.refresh(all_modes=True)
+                        cached_key, last_draw = None, None
+                        if future is None or future.done():
+                            future = executor.submit(loader)
+                        else:
+                            force_snapshot = True
+                    continue
+                if key == ord('r') and detail_browser.mode != 'event':
+                    detail_browser.refresh()
+                    continue
             if focus == 'content' and view in ('N', 'Z') and detail_browser.item and key == ord('r'):
                 detail_browser.refresh()
                 continue
@@ -995,6 +1012,8 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                     if detail_browser.item and focus == 'content':
                         offset = detail_browser.saved_offset
                         detail_browser.close()
+                        if view in ('4', '5'):
+                            event_browser.detail = None
                     elif view in ('4', '5') and event_browser.state(view)['detail'] and focus == 'content':
                         event_browser.detail = None
                         offset = event_browser.saved_offset
@@ -1031,6 +1050,7 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                 elif is_event_list:
                     event_browser.open(view, event_rows, offset)
                     if event_browser.detail:
+                        detail_browser.open_event(event_browser.detail[1], view, offset)
                         offset = 0
                 elif view == '0' and api_resource is None and data:
                     entries = catalog_matches(data, catalog_query)

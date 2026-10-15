@@ -11,6 +11,7 @@ import uuid
 
 import profiles
 import resource_detail as detail
+import event_resources
 
 SCALE = {'deployments', 'deployments.apps', 'statefulsets', 'statefulsets.apps', 'replicasets', 'replicasets.apps'}
 RESTART = {'deployments', 'deployments.apps', 'statefulsets', 'statefulsets.apps', 'daemonsets', 'daemonsets.apps'}
@@ -46,6 +47,8 @@ def available(item):
 
 
 def read_object(client, item):
+    if item.get('expected_kind'):
+        return event_resources.read_object(client, item)
     value, error = client.call('get', item['resource'], item['name'], *scope(item), '-o', 'json')
     if error:
         raise ValueError(error)
@@ -357,12 +360,17 @@ def perform(client, base, info, action, item):
     profiles.clear()
     print('KDASH | Resource operations')
     print('Profile: %s | Cluster: %s | API: %s' % tuple(safe(info.get(k, '-')) for k in ('alias', 'cluster', 'server')))
-    if action == 'new' and item:
-        print('Create resource: ' + safe(item['resource']))
-    elif item:
-        print('Target: ' + safe(item['resource'] + '/' + item['name']) + ' | Namespace: ' + safe(item.get('namespace') or '<cluster>'))
-    print('Esc cancels at any prompt.\n')
     try:
+        if item and item.get('event_context'):
+            if action != 'edit':
+                raise ValueError('Event details support target YAML editing only.')
+            print('Resolving the original Event target...')
+            item = event_resources.resolve(client, item)
+        if action == 'new' and item:
+            print('Create resource: ' + safe(item['resource']))
+        elif item:
+            print('Target: ' + safe(item['resource'] + '/' + item['name']) + ' | Namespace: ' + safe(item.get('namespace') or '<cluster>'))
+        print('Esc cancels at any prompt.\n')
         if action == 'new':
             edit_yaml(client, base, item, new=True)
         elif action == 'edit' and item:

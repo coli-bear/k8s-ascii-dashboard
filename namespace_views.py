@@ -39,8 +39,8 @@ def header(data, width, filters, clean):
     rows = matches(data, filters)
     objects = (data.get('extras') or {}).get('namespaces')
     lines = ['NAMESPACES | Total: %s | Matches: %s' % ('N/A' if objects is None else len(objects), 'N/A' if rows is None else len(rows)),
-             'Up/Down: select | Enter: Overview/Resources/Topology/YAML/Describe',
-             '/: filter name=... status=... | x: clear | r: refresh | Esc: menu',
+             'Keys: Up/Down: select | Enter: Overview/Resources/Topology/YAML/Describe',
+             'Search keys: /: filter name=... status=... | x: clear | r: refresh | Esc: menu',
              'Filter: ' + (' '.join('%s=%s' % pair for pair in (filters or {}).items()) or '(none)'), '-' * width]
     return [part for line in lines for part in textwrap.wrap(clean(line), width) or ['']]
 

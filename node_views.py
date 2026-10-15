@@ -35,8 +35,8 @@ def header(data, width, filters, clean):
     ready = 'N/A' if nodes is None else str(sum(status(n).split(' / ')[0] == 'Ready' for n in nodes))
     cordoned = 'N/A' if nodes is None else str(sum(bool(rv.field(n, 'spec', {}).get('unschedulable')) for n in nodes))
     lines = ['NODES | Total: %s | Ready: %s | Cordoned: %s' % ('N/A' if nodes is None else len(nodes), ready, cordoned),
-             'Up/Down: select | Enter: Status/YAML/Describe | Esc: menu',
-             '/: filter name=... status=... | x: clear | r: refresh',
+             'Keys: Up/Down: select | Enter: Status/YAML/Describe | Esc: menu',
+             'Search keys: /: filter name=... status=... | x: clear | r: refresh',
              'Filter: ' + (' '.join('%s=%s' % pair for pair in (filters or {}).items()) or '(none)') +
              ' | Matches: ' + ('N/A' if rows is None else str(len(rows))), '-' * width]
     return [part for line in lines for part in textwrap.wrap(clean(line), width) or ['']]

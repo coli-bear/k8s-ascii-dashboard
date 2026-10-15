@@ -287,12 +287,12 @@ def render(data, tab, width, table):
     output = ['PROMETHEUS | ' + prom['endpoint'],
               'Scope: this Prometheus endpoint | Filter: ' + (state.get('filter') or '(none)'),
               'Refresh: %ss | Range: %sm | %s' % (state.get('interval', 5), state.get('period', 300)//60, 'PAUSED' if state.get('paused') else 'LOADING' if state.get('loading') else 'AUTO'),
-              't: time range | p: pause/resume | r: refresh | /: filter | x: clear',
+              'Keys: t: time range | p: pause/resume | r: refresh | /: filter | x: clear',
               'Filters: ' + ('node=... cluster=...', 'ns=... cluster=...', 'ns=... service=... cluster=...', 'ns=... name=... cluster=...')[tab]]
     if not snap:
         return output + ['', 'Loading Prometheus time series...']
     output += ['Last query: ' + dt.datetime.fromtimestamp(snap['end']).strftime('%H:%M:%S'),
-               'Rates: trailing 2m | Y axis: auto min/max | STALE: newest source sample >120s.', ''] + snap['notes'] + snap['errors']
+               'Chart: rates over trailing 2m | Y axis: auto min/max | STALE: newest source sample >120s.', ''] + snap['notes'] + snap['errors']
     cards = snap['cards']
     output += [''] + grid(cards, width, 48, lambda card, size: chart(card, snap, size))
     for card in cards:

@@ -4,6 +4,15 @@ import json
 import textwrap
 
 
+def error_record(source, value, stamp):
+    message = str(value.get('message', value)) if isinstance(value, dict) else str(value)
+    ref = (value.get('reference') or value.get('target')) if isinstance(value, dict) else None
+    result = dict(id=(source, message, json.dumps(ref, sort_keys=True, default=str)), source=source, message=message, stamp=stamp)
+    if isinstance(ref, dict):
+        result['reference'] = copy.deepcopy(ref)
+    return result
+
+
 def field(obj, key, default='-'):
     return obj.get(key) if isinstance(obj, dict) and obj.get(key) is not None else default
 
@@ -14,9 +23,9 @@ def records(data, view):
         for source, errors in [('Kubernetes', data.get('errors') or []),
                                ('API discovery', data.get('catalog_errors') or [])]:
             for message in errors:
-                result.append(dict(id=(source, str(message)), source=source, message=str(message), stamp=data.get('stamp', '-')))
+                result.append(error_record(source, message, data.get('stamp', '-')))
         for source, message in (data.get('resource_errors') or {}).items():
-            result.append(dict(id=('resource', source, str(message)), source=source, message=str(message), stamp=data.get('stamp', '-')))
+            result.append(error_record(source, message, data.get('stamp', '-')))
         occurrences = {}
         for row in result:
             identity = row['id']
@@ -28,7 +37,8 @@ def records(data, view):
     for obj in data.get('events') or []:
         if field(obj, 'type') != 'Warning':
             continue
-        meta, target, series = field(obj, 'metadata', {}), field(obj, 'involvedObject', field(obj, 'regarding', {})), field(obj, 'series', {})
+        meta, series = field(obj, 'metadata', {}), field(obj, 'series', {})
+        target = field(obj, 'involvedObject', None) or field(obj, 'regarding', {})
         stamp = field(series, 'lastObservedTime', None) or field(obj, 'lastTimestamp', None) or field(obj, 'eventTime', None) or field(meta, 'creationTimestamp')
         ns, name = field(target, 'namespace', field(meta, 'namespace')), field(target, 'name')
         reason, message = field(obj, 'reason'), field(obj, 'message', field(obj, 'note', ''))
@@ -103,14 +113,14 @@ def header(data, view, width, clean):
     state = data.get('event_state') or {}
     if state.get('detail'):
         lines = ['EVENT DETAIL' if view == '4' else 'COLLECTION ERROR DETAIL',
-                 'Esc: back to list | Up/Down: scroll | u/d: page',
-                 'Snapshot captured when opened; r refreshes the underlying list.', '-' * width]
+                 'Keys: Esc: back to list | Up/Down: scroll | u/d: page',
+                 'Snapshot: captured when opened; r refreshes the underlying list.', '-' * width]
     else:
         rows = records(data, view)
         total = 'N/A' if view == '4' and data.get('events') is None else str(len(rows))
         selected = min(state.get('index', 0)+1, len(rows))
         lines = [('WARNINGS' if view == '4' else 'COLLECTION ERRORS') + ' | Total: ' + total + ' | Selected: ' + str(selected),
-                 'Up/Down: select | Enter: details | u/d: page | Esc: menu']
+                 'Keys: Up/Down: select | Enter: details | u/d: page | Esc: menu']
     wrapped = [part for line in lines for part in textwrap.wrap(clean(line), width) or ['']]
     return wrapped if state.get('detail') else wrapped + table(data, view, width, clean)[0]
 

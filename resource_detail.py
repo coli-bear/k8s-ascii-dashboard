@@ -5,6 +5,8 @@ import re
 import textwrap
 import node_views
 import namespace_views
+import event_resources
+import event_views
 
 
 def identity(obj):
@@ -58,6 +60,8 @@ def selector_text(selector):
 
 
 def load(client, item, mode):
+    if item.get('event_context'):
+        return event_resources.load(client, item, mode)
     resource, name, namespace = item['resource'], item['name'], item.get('namespace')
     if not re.fullmatch(r'[a-z0-9][a-z0-9.-]*', resource or '') or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]*', name or ''):
         return None, 'Invalid resource or object name. Refresh the list.'
@@ -107,6 +111,16 @@ def load(client, item, mode):
 
 
 def demo(item, mode):
+    if item.get('event_context'):
+        ref = event_resources.reference(item['event_row']) or {}
+        if mode == 'yaml':
+            lines = ['# DEMO: synthetic Event target YAML', 'apiVersion: ' + str(ref.get('apiVersion')),
+                     'kind: ' + str(ref.get('kind')), 'metadata:', '  name: ' + json.dumps(ref.get('name'))]
+            if ref.get('namespace'):
+                lines.append('  namespace: ' + json.dumps(ref['namespace']))
+            lines.append('  uid: ' + json.dumps(ref.get('uid')))
+            return '\n'.join(lines) + '\n', None
+        return 'DEMO: synthetic target describe\nName: ' + str(ref.get('name')) + '\nKind: ' + str(ref.get('kind')), None
     if item['resource'] == 'namespaces' and mode in namespace_views.MODES:
         return namespace_views.demo(item['name']), None
     if mode == 'status' and item['resource'] == 'nodes':
@@ -139,8 +153,18 @@ class Detail:
         if self.future:
             self.future.cancel()
 
+    def open_event(self, row, view, offset):
+        ref = event_resources.reference(row) or {}
+        self.generation += 1
+        self.item = dict(event_context=True, event_row=copy.deepcopy(row), event_view=view,
+                         resource=ref.get('kind') or 'events', name=ref.get('name') or '-',
+                         namespace=ref.get('namespace'), namespaced=False, uid=ref.get('uid'),
+                         read_only=bool(event_resources.unavailable(row)))
+        self.mode, self.saved_offset, self.buffers = 'event', offset, {'event': ('', None)}
+
     def switch(self, step=1):
-        modes = (['status'] if self.item['resource'] == 'nodes' else list(namespace_views.MODES) if self.item['resource'] == 'namespaces' else []) + ['yaml', 'describe'] + (['logs'] if self.item['resource'] in LOG_RESOURCES else [])
+        modes = (['event'] + ([] if self.item.get('read_only') else ['describe', 'yaml']) if self.item.get('event_context') else
+                 (['status'] if self.item['resource'] == 'nodes' else list(namespace_views.MODES) if self.item['resource'] == 'namespaces' else []) + ['yaml', 'describe'] + (['logs'] if self.item['resource'] in LOG_RESOURCES else []))
         current = 'logs' if self.mode == 'logs_previous' else self.mode
         self.mode = modes[(modes.index(current) + step) % len(modes)]
 
@@ -157,6 +181,8 @@ class Detail:
                 self.buffers.pop(mode, None)
         else:
             self.buffers.pop(self.mode, None)
+        if self.item and self.item.get('event_context'):
+            self.buffers['event'] = ('', None)
 
     def poll(self, executor, loader):
         if self.future and self.future.done():
@@ -188,27 +214,46 @@ class Detail:
 def header(state, width, clean):
     item = state['target']
     mode = 'logs' if state['mode'] == 'logs_previous' else state['mode']
+    if item.get('event_context'):
+        label = 'Event JSON' if item['event_view'] == '4' else 'Error Details'
+        tabs = [('event', label)] + ([] if item.get('read_only') else [('describe', 'Describe'), ('yaml', 'YAML')])
+        lines = ['Tabs: ' + ' | '.join('[' + label + ']' if key == mode else label for key, label in tabs),
+                 'Keys: Left/Right: detail tab | Esc: list | u/d: page | r: refresh']
+        problem = event_resources.unavailable(item['event_row'])
+        ref = event_resources.reference(item['event_row']) or {}
+        lines += ['Status: ' + problem if problem else 'Target: %s/%s | Namespace: %s' % (ref['kind'], ref['name'], ref.get('namespace') or '(API scope)'),
+                  'Snapshot: original event retained.' if problem else 'Actions: e: edit target YAML | original UID checked before read/edit', '-' * width]
+        return [part for line in lines for part in textwrap.wrap(clean(line), width) or ['']]
     tabs = (['Status'] if item['resource'] == 'nodes' else ['Overview', 'Resources', 'Topology'] if item['resource'] == 'namespaces' else []) + ['YAML', 'Describe'] + (['Logs'] if item['resource'] in LOG_RESOURCES else [])
     lines = [('[' + name + ']' if mode == name.lower() else name) for name in tabs]
-    lines = ['  '.join(lines), 'Left/Right: detail tab | Esc: list | r: reload',
-             item['resource'] + ' | ' + (item.get('namespace') + '/' if item.get('namespace') else '') + item['name'], '-' * width]
-    operations = 'e: edit YAML | n: new YAML | a: operations'
+    lines = ['Tabs: ' + ' | '.join(lines), 'Keys: Left/Right: detail tab | Esc: list | r: reload',
+             'Target: ' + item['resource'] + ' | ' + (item.get('namespace') + '/' if item.get('namespace') else '') + item['name'], '-' * width]
+    operations = 'Actions: e: edit YAML | n: new YAML | a: operations'
     if item['resource'] in LOG_RESOURCES:
         operations += ' | !: exec'
-    lines[-1:-1] = ['READ ONLY | u/d: page | r: refresh current tab' if item.get('read_only') else operations]
+    lines[-1:-1] = ['Actions: READ ONLY | u/d: page | r: refresh current tab' if item.get('read_only') else operations]
     if mode == 'logs':
         lines[-1:-1] = ['Logs: ' + ('PREVIOUS instance' if state['mode'] == 'logs_previous' else 'CURRENT instance') + ' | p: previous/current',
                         'Snapshot: last 200 lines, max 256 KiB per container | r: reload',
-                        'All containers' + (' of selector-matching Pods' if item['resource'] != 'pods' else ' in selected Pod') + '; source prefixes included.']
+                        'Scope: all containers' + (' of selector-matching Pods' if item['resource'] != 'pods' else ' in selected Pod') + '; source prefixes included.']
     return [part for line in lines for part in textwrap.wrap(clean(line), width) or ['']]
 
 
 def content(state, width, clean, table=None):
+    if state['target'].get('event_context') and state['mode'] == 'event':
+        item = state['target']
+        return event_views.content({'event_state': {'detail': item['event_row']}}, item['event_view'], width, clean)
     if state['loading']:
         return ['Loading ' + state['mode'].upper() + '... | Esc: return to list']
     if isinstance(state.get('output'), dict) and state['target']['resource'] == 'namespaces':
         return namespace_views.render(state['output'], state['mode'], width, table, clean)
-    if state['error']:
+    if state['error'] and state['target'].get('event_context') and str(state['error']).startswith('TARGET NOT FOUND\n'):
+        raw = (str(state['error']) + '\n\n'
+               'Context: an Event is a historical reference, not an archived YAML/Describe snapshot.\n'
+               'Available: the original message and reference remain in the Event JSON tab.\n'
+               'Actions: Left/Right: Event JSON | Esc: event list | r: retry target lookup.\n'
+               'Next: to inspect a replacement, select the current object from Resources.')
+    elif state['error']:
         raw = 'QUERY ERROR\n' + str(state['error']) + '\n\nPress r to retry or Esc to return to the list.'
         if state.get('output'):
             raw += '\n\nPARTIAL OUTPUT\n' + state['output']

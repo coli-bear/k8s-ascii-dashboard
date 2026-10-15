@@ -92,7 +92,7 @@ class DashboardTests(unittest.TestCase):
         data['pods'] *= 20
         lines, *_ = kdash.layout(data, '3', 140, 30, 35, focus='content')
         output = '\n'.join(lines)
-        self.assertIn('[Pods]  Deployments', output)
+        self.assertIn('Tabs: [Pods] | Deployments', output)
         self.assertIn('Total: 40', output)
 
     def test_enter_escape_navigation_and_left_right_tabs(self):
