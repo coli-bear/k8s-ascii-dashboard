@@ -1021,6 +1021,8 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                 continue
             if focus == 'content' and (rv.menu_group(view) == 'Resources' or (view == 'Z' and key in (ord('n'), ord('D')))):
                 action = {ord('n'): 'new', ord('D'): 'drafts', ord('e'): 'edit', ord('a'): 'actions', ord('!'): 'exec'}.get(key)
+                if detail_browser.item and detail_browser.mode == 'diagnostics' and action:
+                    continue
                 if action and (action in ('new', 'drafts') or detail_browser.item):
                     if action_handler:
                         item = detail_browser.item or (resource_detail.target(selectable, resource_rows[resource_browser.indices[selection_key]]) if resource_rows else None)

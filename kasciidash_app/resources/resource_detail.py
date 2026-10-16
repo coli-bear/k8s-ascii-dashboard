@@ -4,6 +4,7 @@ import json
 import re
 import textwrap
 from kasciidash_app.resources import alarms
+from kasciidash_app.resources import diagnostics
 from kasciidash_app.resources import node_views
 from kasciidash_app.resources import namespace_views
 from kasciidash_app.resources import event_resources
@@ -75,6 +76,8 @@ def load(client, item, mode):
         return namespace_views.load(client, item)
     if mode == 'topology' and workload_topology.supports(item):
         return namespace_views.load_workload(client, item)
+    if mode == 'diagnostics' and diagnostics.supports(item):
+        return diagnostics.load(client, item)
     if mode == 'yaml':
         return client.text('get', resource, name, *scope, '-o', 'yaml')
     if mode in ('logs', 'logs_previous'):
@@ -148,6 +151,9 @@ def demo(item, mode):
                 'status': {'conditions': [{'type': 'Ready', 'status': 'True', 'reason': 'KubeletReady', 'message': 'DEMO: node is ready'}],
                            'capacity': {'cpu': '8', 'memory': '32Gi', 'pods': '110'}, 'allocatable': {'cpu': '7500m', 'memory': '30Gi', 'pods': '110'}}}
         return node_views.status_text(node, None, [], None, ['DEMO: live usage is not queried.']), None
+    if mode == 'diagnostics':
+        pod = {'kind': 'Pod', 'metadata': {'name': item['name'], 'uid': 'demo'}, 'status': {'phase': 'Pending', 'containerStatuses': [{'name': 'app', 'restartCount': 3, 'state': {'waiting': {'reason': 'CrashLoopBackOff'}}}]}}
+        return diagnostics.report(pod, {'pods': [pod]}, ['DEMO: synthetic data; no API calls.'], 'DEMO'), None
     if mode in ('logs', 'logs_previous'):
         return '[DEMO pod/container] synthetic ' + ('previous' if mode == 'logs_previous' else 'current') + ' log line\n', None
     if mode == 'yaml':
@@ -161,7 +167,7 @@ def detail_modes(item):
     modes = (['status'] if item['resource'] == 'nodes' else list(namespace_views.MODES) if item['resource'] == 'namespaces' else [])
     modes += ['yaml', 'describe'] + (['logs'] if item['resource'] in LOG_RESOURCES else [])
     if item['resource'] != 'namespaces' and workload_topology.supports(item):modes += ['topology']
-    return modes + ['warnings', 'errors']
+    return modes + ['warnings', 'errors'] + (['diagnostics'] if diagnostics.supports(item) else [])
 
 
 class Detail:
@@ -330,6 +336,9 @@ def header(state, width, clean):
     if item['resource'] in LOG_RESOURCES:
         operations += ' | !: exec'
     lines[-1:-1] = ['Actions: READ ONLY | u/d: page | r: refresh current tab' if item.get('read_only') else operations]
+    if mode == 'diagnostics':
+        lines[-2] = 'Actions: READ ONLY | u/d: page | r: refresh current tab'
+        lines[-1:-1] = ['Diagnostics: READ ONLY | evidence / possible explanation / next check | select Logs explicitly']
     if mode == 'logs':
         lines[-1:-1] = ['Logs: ' + ('PREVIOUS instance' if state['mode'] == 'logs_previous' else 'CURRENT instance') + ' | p: previous/current',
                         'Snapshot: last 200 lines, max 256 KiB per container | r: reload',
