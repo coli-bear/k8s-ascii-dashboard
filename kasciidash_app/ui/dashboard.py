@@ -938,6 +938,8 @@ def screen(stdscr, loader, interval, scroll_step=5, resource_loader=None, discov
                         footer = 'DETAIL: Left/Right tabs | Esc list | e edit | n new | D drafts | a actions | r reload | u/d page'
                         if detail_browser.item['resource'] in resource_detail.LOG_RESOURCES:
                             footer += ' | ! exec'
+                    if detail_browser.item and detail_browser.mode == 'diagnostics' and focus == 'content':
+                        footer = 'DIAGNOSTICS: READ ONLY | Left/Right tabs | Esc list | r reload | u/d page | q quit'
                     if detail_browser.item and detail_browser.item.get('event_context') and focus == 'content':
                         footer = 'EVENT: Left/Right tabs | Esc list | u/d page | r refresh' + (' | e edit target YAML' if not detail_browser.item.get('read_only') else ' | target unavailable')
                     elif is_resource_list and focus == 'content':

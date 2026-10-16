@@ -49,6 +49,8 @@ def load(client, item):
     current, error = client.call(*args)
     if error or not valid(current) or meta(current)['uid'] != meta(obj)['uid'] or meta(current).get('generation') != meta(obj).get('generation'):
         return 'Diagnostics unavailable: target changed during collection. Refresh.', None
+    if current['kind'] == 'Pod':
+        objects['pods'] = [current]
     stamp = dt.datetime.now(dt.timezone.utc).isoformat()
     return report(current, objects, sources, stamp), None
 
@@ -113,12 +115,14 @@ def report(obj, objects, sources, stamp):
                 lines += [prefix + ': cumulative restartCount=' + str(restarts if restarts is not None else 'uncollected')]
                 if isinstance(restarts, int) and restarts > 1:
                     finding(prefix + ' repeated restarts recorded', 'cumulative restartCount=%s (not a recent-time rate)' % restarts, 'Past container failures or probes may explain restarts; frequency requires multiple observations.', 'Select Logs explicitly; compare observations and inspect termination reason/probes.')
-                terminated = (container.get('lastState') or {}).get('terminated') or (container.get('state') or {}).get('terminated')
-                if terminated:
-                    reason = safe_reason(terminated.get('reason'))
-                    lines += [prefix + ': termination reason=%s; exitCode=%s; finishedAt=%s' % (reason, terminated.get('exitCode', 'uncollected'), terminated.get('finishedAt', 'uncollected'))]
-                    if reason == 'OOMKilled':
-                        finding(prefix + ' OOM termination observed', 'termination.reason=OOMKilled', 'Memory limit or node pressure may be involved; this does not establish a memory leak.', 'Compare limits, usage history and node memory conditions.')
+                for state_key, state_label in (('state', 'current'), ('lastState', 'previous')):
+                    terminated = (container.get(state_key) or {}).get('terminated')
+                    if terminated:
+                        reason = safe_reason(terminated.get('reason'))
+                        source = state_key + '.terminated'
+                        lines += [prefix + ': %s termination reason=%s; exitCode=%s; finishedAt=%s; source=%s' % (state_label, reason, terminated.get('exitCode', 'uncollected'), terminated.get('finishedAt', 'uncollected'), source)]
+                        if reason == 'OOMKilled':
+                            finding(prefix + ' ' + state_label + ' OOM termination observed', source + '.reason=OOMKilled', 'Memory limit or node pressure may be involved; this does not establish a memory leak.', 'Compare limits, usage history and node memory conditions.')
         claims = {((v.get('persistentVolumeClaim') or {}).get('claimName')) for v in spec.get('volumes') or []} - {None}
         collected_claims = {meta(pvc).get('name') for pvc in objects.get('persistentvolumeclaims') or []}
         for claim in sorted(claims - collected_claims):

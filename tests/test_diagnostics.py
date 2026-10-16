@@ -1,8 +1,9 @@
 import copy
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from concurrent.futures import Future
 
+from kasciidash_app.ui import dashboard as ui
 from kasciidash_app.resources import diagnostics as dg
 from kasciidash_app.resources import resource_detail as rd
 
@@ -131,6 +132,66 @@ class DiagnosticsTests(unittest.TestCase):
         queue[0].set_result(('OLD DIAGNOSTICS', None))
         detail.poll(Pool(), lambda *args: None)
         self.assertNotIn('OLD DIAGNOSTICS', str(detail.state()))
+
+
+    def test_pod_status_uses_final_verified_get(self):
+        first = obj('Pod', 'web', 'p', spec={}, status={'phase': 'Running', 'containerStatuses': [{'name': 'app', 'restartCount': 0, 'state': {'running': {}}}]})
+        current = copy.deepcopy(first)
+        current['metadata']['resourceVersion'] = '2'
+        current['status'] = {'phase': 'Failed', 'containerStatuses': [{'name': 'app', 'restartCount': 1, 'state': {'terminated': {'reason': 'OOMKilled', 'exitCode': 137}}}]}
+        client = Mock()
+        client.call.side_effect = [(first, None)] + [({'items': []}, None)] * 3 + [(current, None)]
+        output, error = rd.load(client, dict(resource='pods', name='web', namespace='test', namespaced=True, uid='p'), 'diagnostics')
+        self.assertIsNone(error)
+        self.assertIn('phase=Failed', output)
+        self.assertIn('cumulative restartCount=1', output)
+        self.assertIn('current OOM termination observed', output)
+        self.assertNotIn('phase=Running', output)
+        self.assertNotIn('cumulative restartCount=0', output)
+
+    def test_current_and_previous_terminations_are_independent(self):
+        container = self.pod['status']['containerStatuses'][0]
+        for current_reason, previous_reason in [('OOMKilled', 'Error'), ('Error', 'OOMKilled'), ('OOMKilled', 'OOMKilled')]:
+            with self.subTest(current=current_reason, previous=previous_reason):
+                container['state'] = {'terminated': {'reason': current_reason, 'exitCode': 137, 'finishedAt': 'current-time'}}
+                container['lastState'] = {'terminated': {'reason': previous_reason, 'exitCode': 1, 'finishedAt': 'previous-time'}}
+                output = self.report()
+                self.assertIn('current termination reason=' + current_reason, output)
+                self.assertIn('previous termination reason=' + previous_reason, output)
+                self.assertIn('finishedAt=current-time; source=state.terminated', output)
+                self.assertIn('finishedAt=previous-time; source=lastState.terminated', output)
+                for label, reason in [('current', current_reason), ('previous', previous_reason)]:
+                    self.assertEqual(label + ' OOM termination observed' in output, reason == 'OOMKilled')
+
+    def test_diagnostics_keyboard_resize_refresh_and_read_only_guard(self):
+        class Pool:
+            def __init__(self,**kw):pass
+            def submit(self,fn,*args):
+                future=Future();future.set_result(fn(*args));return future
+            def shutdown(self,**kw):pass
+        keys=[ord('3'),10,10,ui.curses.KEY_LEFT,-1,*map(ord,'neDa!'),ord('d'),ord('u'),ui.curses.KEY_RESIZE,ord('r'),-1,ui.curses.KEY_RIGHT,ord('e'),27,-1,ord('q')]
+        class Terminal:
+            def __init__(self):self.index=0;self.frames=[];self.current=[]
+            def timeout(self,v):pass
+            def getmaxyx(self):return [(45,160),(18,60),(24,84),(30,100)][(self.index//5)%4]
+            def erase(self):self.current=[]
+            def addnstr(self,y,x,s,n,*a):self.current.append((y,s[:n]))
+            def refresh(self):self.frames.append(list(self.current))
+            def getch(self):
+                key=keys[self.index];self.index+=1;return key
+        terminal=Terminal();actions=[];loads=[]
+        def load(item,mode):loads.append(mode);return rd.demo(item,mode)
+        with patch.object(ui.concurrent.futures,'ThreadPoolExecutor',Pool),patch.object(ui.curses,'curs_set'),patch.object(ui.curses,'set_escdelay',create=True),patch.object(ui.curses,'mousemask'),patch.object(ui.curses,'mouseinterval'),patch.object(ui.sys,'stdout'),patch.object(ui,'terminal_action',side_effect=lambda screen,callback:callback()):
+            self.assertEqual(ui.screen(terminal,ui.demo,30,detail_loader=load,action_handler=lambda a,i:actions.append(a)),'quit')
+        self.assertEqual(actions,['edit'])
+        self.assertEqual(loads.count('diagnostics'),2)
+        self.assertNotIn('logs',loads)
+        footers = [text for frame in terminal.frames for _, text in frame if text.startswith('DIAGNOSTICS:')]
+        self.assertTrue(footers)
+        self.assertTrue(any('READ ONLY' in text and 'r reload' in text for text in footers))
+        for footer in footers:
+            for blocked in ('e edit', 'n new', 'D drafts', 'a actions', '! exec'):
+                self.assertNotIn(blocked, footer)
 
 
 if __name__ == '__main__':
