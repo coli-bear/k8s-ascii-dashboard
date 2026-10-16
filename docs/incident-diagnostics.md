@@ -1,9 +1,12 @@
 # Incident Diagnostics
 
 Pod 및 Deployment 상세 화면에 기존 탭 뒤로 `Diagnostics` 탭을 추가했습니다.
-기존 메뉴 번호와 기본 상세 탭, Warnings/Errors 흐름은 유지합니다.
+기존 대메뉴와 기본 상세 탭, Warnings/Errors 흐름은 유지합니다.
+Resources → Workloads의 Pods/Deployments 또는 API Resources의 pods/deployments.apps에서 지원합니다.
+Event → Warnings/Errors 상세에서 직접 여는 진단 탭은 제공하지 않습니다.
 리소스 목록에서 Enter → 좌/우로 Diagnostics 선택, r 새로 조회, u/d 페이지,
-Esc 목록 복귀입니다. 이 탭에서는 편집/생성/작업/exec 단축키를 실행하지 않습니다.
+Esc 목록 복귀입니다. 읽기 전용 도움말이 표시되며 이 탭에서는 `e/n/D/a/!`
+(편집/생성/초안/작업/exec) 단축키를 실행하지 않습니다.
 Logs 탭 선택은 명시적인 별도 동작이며 진단 조회는 로그를 읽지 않습니다.
 
 ## 관측과 해석
@@ -13,7 +16,7 @@ Logs 탭 선택은 명시적인 별도 동작이며 진단 조회는 로그를 �
   불완료는 진행 중일 수도 있으므로 장애 확정으로 표현하지 않습니다.
 - Deployment → ReplicaSet → Pod는 controller ownerReference의 UID/kind/name으로 연결합니다.
   Job/StatefulSet에는 Deployment 규칙을 적용하지 않습니다. 첫 버전은 Pod/Deployment만 지원합니다.
-- Pod: PodScheduled, nodeName, init/일반 컨테이너 waiting, last/current termination,
+- Pod: PodScheduled, nodeName, init/일반 컨테이너 waiting, 현재 state.terminated와 이전 lastState.terminated의 사유·exitCode·finishedAt·출처를 각각 표시합니다. 각 종료의 OOM을 독립 판정하며,
   누적 restartCount를 표시합니다. 시간별 재시작률은 계산하지 않습니다.
   Pending 원인을 자원 부족으로, OOMKilled 원인을 메모리 누수로 단정하지 않습니다.
 - 관련 UID의 보존 이벤트는 사유/시각/count만 표시합니다. 이벤트 원문 메시지, 조건 메시지,
@@ -25,9 +28,18 @@ Logs 탭 선택은 명시적인 별도 동작이며 진단 조회는 로그를 �
 
 기존 timeout이 있는 인자 배열 기반 Client로 namespace 범위 `get -o json`만 사용합니다.
 대상 GET 후 events/PVC/Quota, Deployment의 경우 ReplicaSet/Pod 목록을 읽고 대상 UID와
-세대를 재검증합니다. Secret/discovery/exec/복구 명령은 호출하지 않습니다.
+세대를 재검증합니다. Pod 대상은 최종 GET의 상태로 본문을 갱신합니다.
+Secret/discovery/exec/복구 명령은 호출하지 않습니다.
 조회 실패는 권한 부족/timeout/API 미수집으로 표시하고 raw stderr는 출력하지 않습니다.
 각 소스의 조회 시각과 출처를 표시하며 실패/미수집을 정상으로 처리하지 않습니다.
+필드 누락은 uncollected로 표시합니다. Deployment observedGeneration이 현재 generation보다
+작거나 미수집이면 stale/uncollected로 안내합니다. 대상 교체나 조회 중 세대 변경 시
+진단을 중단하고 목록 새로고침을 안내합니다. 참조 PVC가 수집 목록에 없을 때도 별도 표시합니다.
+
+대상 pods 또는 deployments.apps의 get 권한과 해당 namespace의 events,
+persistentvolumeclaims, resourcequotas list 권한을 사용합니다. Deployment 진단은 추가로
+replicasets.apps와 pods list 권한이 필요합니다. 일부 list 실패 시 나머지 근거를 표시합니다.
+Prometheus, namespaces get, Secret 또는 logs/exec 권한은 진단 자체에 필요하지 않습니다.
 
 API 읽기는 원자적 스냅샷이 아닙니다. 자식 객체는 수집 중 변할 수 있고 보존 이벤트는
 오래되거나 누락될 수 있습니다. 재시작 빈도, 실제 메모리 사용량, probe 설정의 유효성,
@@ -45,7 +57,10 @@ python3 kasciidash.py --demo
 
 Demo에서 Workloads → Pod Enter → Diagnostics 탭으로 synthetic 진단을 볼 수 있습니다.
 Demo Deployment의 진단 내용도 synthetic Pod 예시이며 실제 Deployment 상태를 의미하지 않습니다.
-테스트는 fake client/fixture만 사용합니다. 실제 인증정보나 클러스터 접근 검증은 하지 않았습니다.
+진단 회귀 13개와 모의 curses 화면 검증을 포함해 전체 218개 테스트가 통과했습니다.
+진단은 fake client/fixture/demo로 검증했으며 전체 테스트에는 기존 로컬 셸/PTY 테스트도
+포함됩니다. 실제 인증정보·클러스터·원격 exec는 사용하지 않았습니다.
+Python 3.9 및 Ubuntu·Rocky 환경 실행은 이번 변경에서 미검증입니다.
 
 공식 판정 근거:
 - https://kubernetes.io/docs/concepts/workloads/controllers/deployment/

@@ -9,6 +9,7 @@ macOS·Ubuntu·Rocky Linux에서 사용할 수 있는 Python3 ASCII Kubernetes �
 - [운영 가이드](docs/operations.md): 상태 확인, YAML 초안 재개, 변경 후 확인, 문제 해결과 설정 보관
 - [kubeconfig와 권한 관리](docs/kubeconfig-access.md): 계정 발급, 인증 갱신, 권한 회수
 - [개발 가이드](docs/development.md): 코드 위치, 테스트 실행과 회귀 검증 기준
+- [읽기 전용 장애 진단](docs/incident-diagnostics.md): Pod/Deployment 진단 근거, 권한과 수집 한계
 
 ## 빠른 시작
 
@@ -292,7 +293,7 @@ Workloads, Network, Config, Storage, Access/RBAC와 API Resources 목록에서 `
 
 | 상세 화면 키 | 동작 |
 | --- | --- |
-| 좌/우 | YAML → Describe → Logs 및 Warnings / Errors 탭 전환. Logs는 지원하는 워크로드에서만 표시 |
+| 좌/우 | YAML → Describe → Logs → Topology → Warnings → Errors → Diagnostics 탭 전환. Logs/Topology는 지원 워크로드, Diagnostics는 Pod/Deployment에서만 표시 |
 | Esc | 상세 → 기존 목록. API Resources에서는 다음 Esc가 카탈로그로 이동 |
 | u/d, 휠, ↑/↓ | 상세 내용 스크롤 |
 | r | 현재 상세 탭 다시 조회 |
@@ -610,6 +611,10 @@ Warnings는 Warning 이벤트, Errors는 대상 reference가 있는 수집 오�
 
 ### 읽기 전용 장애 진단
 
-Pod/Deployment 상세 화면의 기존 탭 뒤에 `Diagnostics` 탭을 추가했습니다.
-증상, 관측 근거, 가능한 설명, 다음 확인을 제공합니다.
-진입/검증 방법과 수집 한계는 [장애 진단 문서](docs/incident-diagnostics.md)를 참고하세요.
+`Resources → Workloads → Pods 또는 Deployments`에서 대상 행을 선택해 Enter를 누른 뒤 좌우 키로 마지막 **Diagnostics** 탭을 엽니다. API Resources의 `pods` / `deployments.apps` 상세에서도 지원합니다. 별도 대메뉴나 Event → Warnings/Errors의 직접 진단 탭은 추가하지 않았으며 기존 진입 흐름은 유지합니다.
+
+배포 카운터·세대·조건, 소유 ReplicaSet/Pod, PodScheduled·노드 배정, init/일반 컨테이너 대기와 현재/이전 종료 상태, 누적 restartCount를 관측합니다. 관련 UID 이벤트 사유·시각·횟수, 참조 PVC phase와 namespace Quota hard/used도 함께 보여줍니다. 증상·근거·가능한 설명·다음 확인을 제공하며 Pending/OOMKilled만으로 원인을 확정하지 않습니다.
+
+`r`은 새 조회, `u/d`는 페이지, Esc는 목록 복귀입니다. Diagnostics에서는 `e/n/D/a/!`를 차단하며 삭제·재시작·scale·exec를 실행하지 않습니다. 로그는 별도 Logs 탭을 선택해야 조회합니다. 진단에 Secret 값·환경변수·원문 이벤트 메시지는 표시하지 않습니다. 다른 기존 탭의 YAML/Logs 출력에는 민감한 값이 포함될 수 있습니다.
+
+필드 누락은 `uncollected`, 조회 실패는 권한 부족/timeout/API 미수집으로 표시하며 0이나 정상으로 해석하지 않습니다. Deployment의 observedGeneration이 뒤처지면 상태가 오래됐다고 표시하고, 각 조회 출처·시각을 제공합니다. API 읽기는 원자적이지 않으며 실제 클러스터 검증은 하지 않았습니다. 상세 권한·검증 범위는 [장애 진단 문서](docs/incident-diagnostics.md)를 참고하세요.

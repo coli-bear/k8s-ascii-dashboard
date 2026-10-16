@@ -28,6 +28,7 @@ python3 -m kasciidash_app --demo
 | 프로필·kubeconfig 가져오기·연결 설정 | `kasciidash_app/config/profiles.py` |
 | Prometheus 조회·집계·모니터링 렌더링 | `kasciidash_app/monitoring/prometheus.py` |
 | 리소스 목록·상세·작업·이벤트·노드·namespace | `kasciidash_app/resources/` |
+| Pod/Deployment 읽기 전용 장애 진단 | `kasciidash_app/resources/diagnostics.py`, `resource_detail.py` |
 | 워크로드 범위·연결 그래프 | `kasciidash_app/topology/` |
 | exec의 PTY·입출력·터미널 복원 | `kasciidash_app/terminal/exec_session.py` |
 | 회귀 테스트 | `tests/` |
@@ -84,3 +85,13 @@ python3 -B -m unittest tests.test_yaml_storage tests.test_event_filters -v
 `tests.test_navigation_performance`는 유휴/커서 이동 시 필터·표 재생성 횟수와 오래된 상세 결과 격리를 검증합니다. `tests.test_resource_alarms`는 소유 관계·Service selector·반복 Event·reference 오류·교체 UID·수집 실패와 상세 탭을 검증합니다. 실제 클러스터 응답 시간을 측정하는 테스트는 아닙니다.
 
 측정 범위와 결과는 [목록 성능·알람 검증 기록](performance-and-alarms-2026-10-15.md)을 참고하세요.
+
+## 장애 진단 회귀 검증
+
+`resources/diagnostics.py`는 기존 timeout Client를 통해 필요한 namespace 리소스만 get하고, `resource_detail.py`의 Diagnostics 탭과 Detail 세대 격리를 사용합니다. Warnings/Errors의 스냅샷 인덱스와 달리 진단 탭은 처음 열거나 새로고침할 때 별도로 조회하고, 같은 상세를 열어 둔 동안 탭 결과를 캐시합니다. Pod 대상은 최종 UID·세대 검증 GET의 상태를 사용합니다. 현재 `state.terminated`와 이전 `lastState.terminated`는 각각 출처와 종료 시각을 표시하고 OOM을 독립 판정합니다.
+
+```sh
+python3 -B -m unittest tests.test_diagnostics -v
+```
+
+이 13개 테스트는 소유 관계·부분 조회 실패·민감 원문 제외·Deployment stale/missing·최종 Pod 상태·두 종료 상태·오래된 응답 격리 및 모의 curses 단축키/도움말/리사이즈를 검증합니다. 전체 218개 테스트에는 기존 로컬 셸/PTY 테스트도 포함됩니다. Diagnostics 자체는 fixture/mock/demo로만 검증했으며 실제 클러스터·인증정보·원격 exec를 사용하지 않았습니다. Python 3.9 및 다른 OS에서의 실행을 이 결과로 보장하지 않습니다. 수집 범위와 남은 한계는 [장애 진단 문서](incident-diagnostics.md)를 참고하세요.

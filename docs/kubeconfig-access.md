@@ -23,6 +23,8 @@
 | 전체 클러스터 운영 | cluster-admin을 ClusterRoleBinding으로 연결 | 전체 리소스 운영. admission 정책 등 별도 통제는 계속 적용 |
 | Prometheus 차트 | Prometheus endpoint 접근·별도 인증 | Kubernetes RBAC만으로 연결되지 않음 |
 
+Pod/Deployment의 Diagnostics는 대상 get 및 해당 namespace의 events·persistentvolumeclaims·resourcequotas list를 사용합니다. Deployment는 replicasets.apps·pods list도 필요합니다. Secret/logs/exec나 namespaces get 권한은 진단 자체에 요구하지 않습니다. 일부 조회 실패는 권한 부족/timeout/API 미수집으로 표시하며 나머지 근거를 유지합니다. [진단 권한과 한계](incident-diagnostics.md)를 참고하세요.
+
 현재 KAsciiDash는 Pod·워크로드 목록을 모든 namespace에서 조회합니다. namespace 한 곳의 RoleBinding만 가진 계정은 `-A` 조회가 Forbidden일 수 있습니다. 권한이 없는 기능은 N/A 또는 Errors로 표시되며 앱을 통해 권한을 우회하지 않습니다. API Resources에 타입이 보이는 것과 해당 타입의 조회·생성 권한은 별개입니다.
 
 ### cluster-admin과 슈퍼 관리자는 어떻게 다른가?

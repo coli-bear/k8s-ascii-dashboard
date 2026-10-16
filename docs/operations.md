@@ -26,10 +26,18 @@ python3.11 kasciidash.py
 1. Dashboard → Overview에서 노드 상태, Pod 장애·Pending 수와 수집 오류를 확인합니다. N/A는 조회 불가이며 정상이나 사용량 0을 의미하지 않습니다.
 2. Clusters → Nodes에서 문제 노드를 선택해 상태와 Describe를 확인합니다. 모니터링 차트에 노드가 안 보이면 노드 목록과 함께 비교합니다. 차트는 Prometheus가 반환한 시계열을 기준으로 하므로 누락된 노드를 사용량 0으로 간주하지 않습니다.
 3. Event → Warnings에서 `namespace=... object=... reason=...`으로 관련 이벤트를 좁힙니다. 과거 이벤트의 객체가 이미 삭제됐다면 상세 YAML/Describe는 NotFound일 수 있습니다.
-4. Resources → Workloads에서 대상과 namespace를 확인하고 Describe·Logs를 조회합니다. Logs는 스트리밍이 아닌 스냅샷이므로 `r`로 다시 조회합니다.
+4. Resources → Workloads에서 대상과 namespace를 확인합니다. Pod/Deployment는 Enter → 좌우 키로 Diagnostics를 열어 증상·근거·가능한 설명·다음 확인을 봅니다. 필요한 경우 Describe나 Logs를 명시적으로 선택합니다. Logs는 스트리밍이 아닌 스냅샷이므로 `r`로 다시 조회합니다.
 5. 소유 관계와 설정 연결이 필요하면 워크로드의 Topology 또는 Namespaces 상세의 TreeView·Topology를 사용합니다. 이 연결도는 실제 네트워크 통신이나 연결 성공을 보장하는 자료가 아닙니다.
 
 Errors는 Kubernetes Error 이벤트 목록이 아니라 앱의 수집 오류 목록입니다. 별도 reason이 없는 오류는 오류 메시지를 reason 필터로 검색합니다. 오류에 대상 정보가 없으면 namespace/object 조건으로 찾을 수 없습니다.
+
+## 읽기 전용 장애 진단
+
+Pod/Deployment 상세의 마지막 Diagnostics 탭에서 `r`로 조회를 갱신합니다. `u/d` 페이지, Esc 목록 복귀, 좌우 탭 전환을 사용합니다. 이 탭에서는 `e/n/D/a/!`가 차단되고 자동 복구·삭제·재시작·scale·exec를 실행하지 않습니다. Warnings/Errors는 기존 이벤트·수집 오류 확인에 계속 사용합니다.
+
+Deployment는 카운터와 observedGeneration, 조건 및 UID로 연결된 ReplicaSet/Pod를 확인합니다. Pod는 예약·노드 배정, init/일반 컨테이너 대기, 현재/이전 종료, 누적 재시작을 확인합니다. 이벤트는 관련 UID의 보존 사유·시각·횟수만 표시하며 참조 PVC와 namespace Quota는 보조 근거입니다. 상세 해석과 필요한 get/list 권한은 [장애 진단 문서](incident-diagnostics.md)를 참고하세요.
+
+`uncollected`·권한 부족·timeout은 정상이나 0이 아닙니다. Deployment의 오래된 관측 세대, 조회별 시각, 누락된 소유 관계를 확인하고 필요하면 갱신합니다. Pending을 자원 부족으로, OOMKilled를 누수로 단정하지 않으며 누적 restartCount를 최근 발생률로 사용하지 않습니다. 서로 다른 API 읽기와 오래된 이벤트가 혼재할 수 있고 실제 클러스터 동작은 아직 미검증입니다. 로그는 명시적으로 Logs 탭에서 조회합니다.
 
 ## 신규 YAML 초안과 기존 리소스 수정
 
